@@ -26,7 +26,6 @@ jobs:
         include:
           - name: backend
             dir: backend
-            token: SONAR_TOKEN_BACKEND
             triggers: ('backend/')
             triggers_event: ('pull_request')
           - name: frontend-merge
@@ -35,7 +34,6 @@ jobs:
             triggers_event: ('pull_request')
           - name: frontend-pr
             dir: frontend
-            token: SONAR_TOKEN_FRONTEND
             triggers_event: ('push')
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +52,10 @@ jobs:
             -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_${{ matrix.dir }}
             -Dsonar.sources=src
             -Dsonar.tests.inclusions=**/*spec.ts
-          sonar_token: ${{ secrets[matrix.token] }}
+          sonar_token: ${{
+            (matrix.name == 'backend' && secrets.SONAR_TOKEN_BACKEND) ||
+            (matrix.name == 'frontend-pr' && secrets.SONAR_TOKEN_FRONTEND) ||
+            ''
+          }}
           triggers: ${{ matrix.triggers }}
           triggers_event: ${{ matrix.triggers_event }}
