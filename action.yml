@@ -116,7 +116,7 @@ runs:
 
     # If sonar_token
     - if: inputs.sonar_token && steps.diff.outputs.triggered == 'true'
-      uses: SonarSource/sonarqube-scan-action@v5.0.0
+      uses: SonarSource/sonarqube-scan-action@v5.1.0
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
       with:
