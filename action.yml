@@ -78,11 +78,11 @@ runs:
           exit 1
         fi
 
-    # Send triggers to diff action
+    # Send triggers to diff action, but only for pull requests
     - id: diff
       uses: bcgov/action-diff-triggers@v0.2.0
       with:
-        triggers: ${{ github.event_name == 'pull_request' && '' || inputs.triggers }}
+        triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         diff_branch: ${{ inputs.diff_branch }}
 
     # Shallow clone is faster, but SonarCloud requires a full clone

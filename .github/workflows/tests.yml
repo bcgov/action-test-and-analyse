@@ -27,14 +27,11 @@ jobs:
           - name: backend
             dir: backend
             triggers: ('backend/')
-            triggers_event: ('pull_request')
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
-            triggers_event: ('pull_request')
           - name: frontend-pr
             dir: frontend
-            triggers_event: ('push')
     steps:
       - uses: actions/checkout@v4
       - uses: ./
@@ -56,4 +53,3 @@ jobs:
             || matrix.name == 'frontend-pr' && secrets.SONAR_TOKEN_FRONTEND
             || '' }}
           triggers: ${{ matrix.triggers }}
-          triggers_event: ${{ matrix.triggers_event }}
