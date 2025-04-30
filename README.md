@@ -78,11 +78,6 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     # Useful for consuming non-default branches, like in testing
     # Defants to empty, cloning the default branch
     branch: ""
-
-    # Bash array of events for limiting triggers, otherwise trigger automatically
-    # E.g. ("pull_request" "push" "workflow_dispatch")
-    # Defaults to only using triggers with pull requests
-    triggers_event: "('pull_request')"
 ```
 
 # Example, Single Directory with SonarCloud Analysis
@@ -198,10 +193,6 @@ For BC Government projects, please create an [issue for our platform team](https
 After sign up, a token should be available from your project on the [SonarCloud] site.  Multirepo projects (e.g. backend, frontend) will have multiple projects.  Click `Administration > Analysis Method > GitHub Actions (tutorial)` to find yours.
 
 E.g. https://sonarcloud.io/project/configuration?id={<PROJECT>}&analysisMode=GitHubActions
-
-# Triggers and Triggers_Event
-
-Triggers are used to limit test running to only appropriate files are changed.  This is generally not desirable outside of pull requests, so `triggers_event` defaults to `("pull_request")`.  Override this behaviour by specifying a bash array using any of the many, many [event types GitHub provides](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#push), e.g. `("branch_protection_rule" "workflow_dispatch" "push")`.
 
 # Feedback
 

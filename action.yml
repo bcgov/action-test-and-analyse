@@ -49,10 +49,6 @@ inputs:
     description: Non-default branch to clone (used for testing this action)
     default: ""
 
-  triggers_event:
-    description: Events (array) to use with triggers; e.g. ("pull_request" "push" "workflow_dispatch")
-    default: "('pull_request')"
-
 runs:
   using: composite
   steps:
@@ -82,11 +78,11 @@ runs:
           exit 1
         fi
 
-    # Send triggers to diff action
+    # Send triggers to diff action, but only for pull requests
     - id: diff
       uses: bcgov/action-diff-triggers@v0.2.0
       with:
-        triggers: ${{ inputs.triggers }}
+        triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         diff_branch: ${{ inputs.diff_branch }}
 
     # Shallow clone is faster, but SonarCloud requires a full clone
