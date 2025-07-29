@@ -34,10 +34,6 @@ jobs:
             dir: frontend
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - name: Debug token assignment
-        run: |
-          echo "Matrix name: ${{ matrix.name }}"
-          echo "Token set: ${{ matrix.name == 'backend' && 'BACKEND_TOKEN' || 'FRONTEND_TOKEN' }}"
       - uses: ./
         with:
           commands: |
