@@ -86,7 +86,7 @@ runs:
         diff_branch: ${{ inputs.diff_branch }}
 
     # Shallow clone is faster, but SonarCloud requires a full clone
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
         repository: ${{ inputs.repository }}
@@ -137,4 +137,4 @@ runs:
     # Fix - Clone for action.yml and other verifications
     - name: Checkout Action repo to pass tests
       if: always() && inputs.repository != github.repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
