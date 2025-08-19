@@ -44,7 +44,7 @@ inputs:
   repository:
     description: Non-default repository to clone (used for testing this action)
     default: ${{ github.repository }}
-  
+
   branch:
     description: Non-default branch to clone (used for testing this action)
     default: ""
@@ -86,14 +86,14 @@ runs:
         diff_branch: ${{ inputs.diff_branch }}
 
     # Shallow clone is faster, but SonarCloud requires a full clone
-    - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.branch }}
 
     # Setup node and cache dir
-    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+    - uses: actions/setup-node@v4
       if: steps.diff.outputs.triggered == 'true'
       with:
         node-version: ${{ inputs.node_version }}
@@ -137,4 +137,4 @@ runs:
     # Fix - Clone for action.yml and other verifications
     - name: Checkout Action repo to pass tests
       if: always() && inputs.repository != github.repository
-      uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      uses: actions/checkout@v4
