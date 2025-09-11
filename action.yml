@@ -49,6 +49,11 @@ inputs:
     description: Non-default branch to clone (used for testing this action)
     default: ""
 
+outputs:
+  triggered:
+    description: Whether the action was triggered based on path changes
+    value: ${{ steps.diff.outputs.triggered }}
+
 runs:
   using: composite
   steps:
