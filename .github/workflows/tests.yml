@@ -100,7 +100,7 @@ jobs:
         test: [command-failure, missing-directory, missing-package-json]
     steps:
       - uses: actions/checkout@v5
-      
+
       - name: Test command failure handling
         if: matrix.test == 'command-failure'
         uses: ./
@@ -159,5 +159,5 @@ jobs:
               fi
               ;;
           esac
-          
+
           echo "🎉 Error handling test '${{ matrix.test }}' passed!"
