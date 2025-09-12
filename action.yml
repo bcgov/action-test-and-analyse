@@ -23,7 +23,7 @@ inputs:
   cache:
     description: Package manager for caching; e.g. npm, yarn, pnpm
     default: npm
-    pattern: '^(npm|yarn|pnpm)$'
+    pattern: "^(npm|yarn|pnpm)$"
 
   sonar_args:
     # https://docs.sonarcloud.io/advanced-setup/analysis-parameters/
