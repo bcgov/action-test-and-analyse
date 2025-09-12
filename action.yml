@@ -17,13 +17,11 @@ inputs:
   node_version:
     description: Node version to use (e.g., '18', '20', '22')
     required: true
-    pattern: '^[0-9]+(\.[0-9]+)*$'
 
   ### Typical / recommended
   cache:
     description: Package manager for caching; e.g. npm, yarn, pnpm
     default: npm
-    pattern: "^(npm|yarn|pnpm)$"
 
   sonar_args:
     # https://docs.sonarcloud.io/advanced-setup/analysis-parameters/
