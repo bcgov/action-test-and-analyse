@@ -37,7 +37,7 @@ jobs:
             expected_triggered: true
     steps:
       - uses: actions/checkout@v5
-      - id: test-and-analyse
+      - id: action
         uses: ./
         with:
           commands: |
@@ -60,11 +60,11 @@ jobs:
         run: |
           echo "🔍 Verifying trigger behavior for ${{ matrix.name }}"
           echo "Expected: ${{ matrix.expected_triggered }}"
-          echo "Actual: ${{ steps.test-and-analyse.outputs.triggered }}"
+          echo "Actual: ${{ steps.action.outputs.triggered }}"
 
           case "${{ matrix.name }}" in
             "backend")
-              if [ "${{ steps.test-and-analyse.outputs.triggered }}" != "false" ]; then
+              if [ "${{ steps.action.outputs.triggered }}" != "false" ]; then
                 echo "❌ Backend job should NOT have been triggered (no backend/ changes)"
                 exit 1
               else
@@ -72,7 +72,7 @@ jobs:
               fi
               ;;
             "frontend-merge")
-              if [ "${{ steps.test-and-analyse.outputs.triggered }}" != "true" ]; then
+              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
                 echo "❌ Frontend-merge job should have been triggered (triggers: '.')"
                 exit 1
               else
@@ -80,7 +80,7 @@ jobs:
               fi
               ;;
             "frontend-pr")
-              if [ "${{ steps.test-and-analyse.outputs.triggered }}" != "true" ]; then
+              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
                 echo "❌ Frontend-pr job should have been triggered (no triggers = always run)"
                 exit 1
               else
