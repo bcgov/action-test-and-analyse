@@ -57,31 +57,82 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Warnings for breaking changes
+    - name: Input validation and warnings
       shell: bash
       run: |
-        # Warnings for breaking changes
-
-        # node_version now required
-        if [ -z "${{ inputs.node_version }}" ]; then
-          echo -e "\nnode_version now required.  Previous default: 16."
-          echo -e "\n\tAction: add a node_version parameter\n"
+        echo "🔍 Validating inputs..."
+        
+        # Check required inputs
+        if [ -z "${{ inputs.commands }}" ]; then
+          echo "❌ Error: 'commands' input is required"
+          echo "   Please provide commands to run tests, e.g.:"
+          echo "   commands: |"
+          echo "     npm ci"
+          echo "     npm run test:cov"
           exit 1
         fi
 
-        # sonar_project_token renamed sonar_token
+        if [ -z "${{ inputs.dir }}" ]; then
+          echo "❌ Error: 'dir' input is required"
+          echo "   Please provide the app/package directory, e.g.:"
+          echo "   dir: frontend"
+          exit 1
+        fi
+
+        if [ -z "${{ inputs.node_version }}" ]; then
+          echo "❌ Error: 'node_version' input is required"
+          echo "   Please provide a Node.js version, e.g.:"
+          echo "   node_version: '20'"
+          echo "   Previous default: 16"
+          exit 1
+        fi
+
+        # Validate node_version format
+        if ! echo "${{ inputs.node_version }}" | grep -E '^[0-9]+(\.[0-9]+)*$' > /dev/null; then
+          echo "❌ Error: Invalid node_version format: '${{ inputs.node_version }}'"
+          echo "   Please use a valid Node.js version, e.g.: '18', '20', '22'"
+          exit 1
+        fi
+
+        # Validate cache input
+        if [ -n "${{ inputs.cache }}" ] && ! echo "${{ inputs.cache }}" | grep -E '^(npm|yarn|pnpm)$' > /dev/null; then
+          echo "❌ Warning: Unusual cache value: '${{ inputs.cache }}'"
+          echo "   Supported values: npm, yarn, pnpm"
+          echo "   Default: npm"
+        fi
+
+        # Check if directory exists
+        if [ ! -d "${{ inputs.dir }}" ]; then
+          echo "❌ Error: Directory '${{ inputs.dir }}' does not exist"
+          echo "   Please check the 'dir' input value"
+          echo "   Current working directory: $(pwd)"
+          echo "   Available directories:"
+          ls -la | grep '^d' | awk '{print "   - " $9}' | grep -v '^\.$\|^\.\.$' || echo "   (none found)"
+          exit 1
+        fi
+
+        # Check for package.json in directory
+        if [ ! -f "${{ inputs.dir }}/package.json" ]; then
+          echo "❌ Error: No package.json found in '${{ inputs.dir }}'"
+          echo "   Please ensure the directory contains a Node.js project"
+          echo "   Expected file: ${{ inputs.dir }}/package.json"
+          exit 1
+        fi
+
+        # Warnings for breaking changes
         if [ ! -z "${{ inputs.sonar_project_token }}" ]; then
-          echo -e "\nsonar_project_token renamed.  Please correct this and try again."
+          echo -e "\n⚠️  Breaking change: sonar_project_token renamed"
           echo -e "\n\tAction: rename sonar_project_token to sonar_token\n"
           exit 1
         fi
 
-        #
         if [ ! -z "${{ inputs.sonar_comment_token }}" ]; then
-          echo -e "\nsonar_comment_token deprecated.  Please correct this and try again."
+          echo -e "\n⚠️  Breaking change: sonar_comment_token deprecated"
           echo -e "\n\tAction: remove sonar_comment_token parameter\n"
           exit 1
         fi
+
+        echo "✅ Input validation passed"
 
     # Send triggers to diff action, but only for pull requests
     - id: diff
@@ -110,8 +161,35 @@ runs:
       shell: bash
       working-directory: ${{ inputs.dir }}
       run: |
-        # Run Tests
-        ${{ inputs.commands }}
+        echo "🚀 Running test commands in ${{ inputs.dir }}..."
+        echo "Commands: ${{ inputs.commands }}"
+        
+        # Run Tests with error handling
+        if ! ${{ inputs.commands }}; then
+          echo ""
+          echo "❌ Test commands failed!"
+          echo ""
+          echo "🔧 Common troubleshooting steps:"
+          echo "   1. Check if package.json exists and has test scripts"
+          echo "   2. Verify all dependencies are installed (npm ci)"
+          echo "   3. Check if test files exist and are properly configured"
+          echo "   4. Ensure Node.js version compatibility"
+          echo ""
+          echo "📋 Debug information:"
+          echo "   - Working directory: $(pwd)"
+          echo "   - Node version: $(node --version)"
+          echo "   - NPM version: $(npm --version)"
+          echo "   - Available scripts:"
+          if [ -f package.json ]; then
+            npm run 2>/dev/null | grep -E '^  [a-z]' | head -10 || echo "   (no scripts found)"
+          else
+            echo "   (no package.json found)"
+          fi
+          echo ""
+          exit 1
+        fi
+        
+        echo "✅ Test commands completed successfully"
 
     ### Optional SonarCloud
 
