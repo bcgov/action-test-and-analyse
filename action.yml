@@ -104,7 +104,7 @@ runs:
         echo "Commands: ${{ inputs.commands }}"
 
         # Run Tests with error handling
-        if ! ${{ inputs.commands }}; then
+        if ! (${{ inputs.commands }}); then
           echo ""
           echo "❌ Test commands failed!"
           echo ""
