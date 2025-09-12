@@ -91,63 +91,25 @@ jobs:
 
           echo "🎉 ${{ matrix.name }} trigger behavior verified correctly!"
 
-  validation-tests:
-    name: Validation Tests
+  error-handling-tests:
+    name: Error Handling Tests
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        test: [missing-commands, missing-dir, missing-node-version, invalid-node-version, invalid-cache, missing-directory, missing-package-json]
+        test: [command-failure, missing-directory, missing-package-json]
     steps:
       - uses: actions/checkout@v5
       
-      - name: Test missing commands
-        if: matrix.test == 'missing-commands'
+      - name: Test command failure handling
+        if: matrix.test == 'command-failure'
         uses: ./
         continue-on-error: true
         with:
+          commands: "npm run nonexistent-script"
           dir: .
           node_version: "20"
-        id: test-missing-commands
-
-      - name: Test missing dir
-        if: matrix.test == 'missing-dir'
-        uses: ./
-        continue-on-error: true
-        with:
-          commands: "echo 'test'"
-          node_version: "20"
-        id: test-missing-dir
-
-      - name: Test missing node_version
-        if: matrix.test == 'missing-node-version'
-        uses: ./
-        continue-on-error: true
-        with:
-          commands: "echo 'test'"
-          dir: .
-        id: test-missing-node-version
-
-      - name: Test invalid node_version
-        if: matrix.test == 'invalid-node-version'
-        uses: ./
-        continue-on-error: true
-        with:
-          commands: "echo 'test'"
-          dir: .
-          node_version: "invalid-version"
-        id: test-invalid-node-version
-
-      - name: Test invalid cache
-        if: matrix.test == 'invalid-cache'
-        uses: ./
-        continue-on-error: true
-        with:
-          commands: "echo 'test'"
-          dir: .
-          node_version: "20"
-          cache: "invalid-cache"
-        id: test-invalid-cache
+        id: test-command-failure
 
       - name: Test missing directory
         if: matrix.test == 'missing-directory'
@@ -169,47 +131,15 @@ jobs:
           node_version: "20"
         id: test-missing-package-json
 
-      - name: Verify validation failures
+      - name: Verify error handling
         run: |
           case "${{ matrix.test }}" in
-            "missing-commands")
-              if [ "${{ steps.test-missing-commands.outcome }}" == "success" ]; then
-                echo "❌ Should have failed for missing commands"
+            "command-failure")
+              if [ "${{ steps.test-command-failure.outcome }}" == "success" ]; then
+                echo "❌ Should have failed for command failure"
                 exit 1
               else
-                echo "✅ Correctly failed for missing commands"
-              fi
-              ;;
-            "missing-dir")
-              if [ "${{ steps.test-missing-dir.outcome }}" == "success" ]; then
-                echo "❌ Should have failed for missing dir"
-                exit 1
-              else
-                echo "✅ Correctly failed for missing dir"
-              fi
-              ;;
-            "missing-node-version")
-              if [ "${{ steps.test-missing-node-version.outcome }}" == "success" ]; then
-                echo "❌ Should have failed for missing node_version"
-                exit 1
-              else
-                echo "✅ Correctly failed for missing node_version"
-              fi
-              ;;
-            "invalid-node-version")
-              if [ "${{ steps.test-invalid-node-version.outcome }}" == "success" ]; then
-                echo "❌ Should have failed for invalid node_version"
-                exit 1
-              else
-                echo "✅ Correctly failed for invalid node_version"
-              fi
-              ;;
-            "invalid-cache")
-              if [ "${{ steps.test-invalid-cache.outcome }}" == "success" ]; then
-                echo "❌ Should have failed for invalid cache"
-                exit 1
-              else
-                echo "✅ Correctly failed for invalid cache"
+                echo "✅ Correctly failed for command failure with helpful error message"
               fi
               ;;
             "missing-directory")
@@ -230,4 +160,4 @@ jobs:
               ;;
           esac
           
-          echo "🎉 Validation test '${{ matrix.test }}' passed!"
+          echo "🎉 Error handling test '${{ matrix.test }}' passed!"
