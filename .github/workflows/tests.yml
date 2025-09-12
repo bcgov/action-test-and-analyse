@@ -27,14 +27,18 @@ jobs:
           - name: backend
             dir: backend
             triggers: ('backend/')
+            expected_triggered: false
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
+            expected_triggered: true
           - name: frontend-pr
             dir: frontend
+            expected_triggered: true
     steps:
       - uses: actions/checkout@v5
-      - uses: ./
+      - id: action
+        uses: ./
         with:
           commands: |
             npm ci
@@ -51,3 +55,38 @@ jobs:
             -Dsonar.tests.inclusions=**/*spec.ts
           sonar_token: ${{ matrix.name == 'backend' && secrets.SONAR_TOKEN_BACKEND || secrets.SONAR_TOKEN_FRONTEND }}
           triggers: ${{ matrix.triggers }}
+
+      - name: Verify trigger behavior
+        run: |
+          echo "🔍 Verifying trigger behavior for ${{ matrix.name }}"
+          echo "Expected: ${{ matrix.expected_triggered }}"
+          echo "Actual: ${{ steps.action.outputs.triggered }}"
+
+          case "${{ matrix.name }}" in
+            "backend")
+              if [ "${{ steps.action.outputs.triggered }}" != "false" ]; then
+                echo "❌ Backend job should NOT have been triggered (no backend/ changes)"
+                exit 1
+              else
+                echo "✅ Backend job correctly NOT triggered"
+              fi
+              ;;
+            "frontend-merge")
+              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
+                echo "❌ Frontend-merge job should have been triggered (triggers: '.')"
+                exit 1
+              else
+                echo "✅ Frontend-merge job correctly triggered"
+              fi
+              ;;
+            "frontend-pr")
+              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
+                echo "❌ Frontend-pr job should have been triggered (no triggers = always run)"
+                exit 1
+              else
+                echo "✅ Frontend-pr job correctly triggered"
+              fi
+              ;;
+          esac
+
+          echo "🎉 ${{ matrix.name }} trigger behavior verified correctly!"
