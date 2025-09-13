@@ -13,6 +13,7 @@ inputs:
   dir:
     description: App/package directory
     required: true
+    pattern: "^[a-zA-Z0-9._/-]+$"
 
   node_version:
     description: Node version to use (e.g., '18', '20', '22')
