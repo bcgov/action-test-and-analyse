@@ -13,15 +13,18 @@ inputs:
   dir:
     description: App/package directory
     required: true
+    pattern: "^[a-zA-Z0-9._/-]+$"
 
   node_version:
-    description: Node version to use
+    description: Node version to use (e.g., '18', '20', '22')
     required: true
+    pattern: '^[0-9]+(\.[0-9]+)*$'
 
   ### Typical / recommended
   cache:
     description: Package manager for caching; e.g. npm, yarn, pnpm
     default: npm
+    pattern: "^(npm|yarn|pnpm)$"
 
   sonar_args:
     # https://docs.sonarcloud.io/advanced-setup/analysis-parameters/
@@ -32,6 +35,7 @@ inputs:
 
   sonar_token:
     description: Sonar token, provide unpopulated token for pre-setup (will skip)
+    pattern: "^[a-zA-Z0-9]{20,}$"
 
   triggers:
     description: Paths (array) used to trigger a build; e.g. ('./backend/' './frontend/)
@@ -40,14 +44,17 @@ inputs:
   diff_branch:
     description: Branch to diff against
     default: ${{ github.event.repository.default_branch }}
+    pattern: "^[a-zA-Z0-9._/-]+$"
 
   repository:
     description: Non-default repository to clone (used for testing this action)
     default: ${{ github.repository }}
+    pattern: "^[a-zA-Z0-9-_]+/[a-zA-Z0-9-_]+$"
 
   branch:
     description: Non-default branch to clone (used for testing this action)
     default: ""
+    pattern: "^[a-zA-Z0-9._/-]*$"
 
 outputs:
   triggered:
@@ -61,24 +68,14 @@ runs:
       shell: bash
       run: |
         # Warnings for breaking changes
-
-        # node_version now required
-        if [ -z "${{ inputs.node_version }}" ]; then
-          echo -e "\nnode_version now required.  Previous default: 16."
-          echo -e "\n\tAction: add a node_version parameter\n"
-          exit 1
-        fi
-
-        # sonar_project_token renamed sonar_token
         if [ ! -z "${{ inputs.sonar_project_token }}" ]; then
-          echo -e "\nsonar_project_token renamed.  Please correct this and try again."
+          echo -e "\n⚠️  Breaking change: sonar_project_token renamed"
           echo -e "\n\tAction: rename sonar_project_token to sonar_token\n"
           exit 1
         fi
 
-        #
         if [ ! -z "${{ inputs.sonar_comment_token }}" ]; then
-          echo -e "\nsonar_comment_token deprecated.  Please correct this and try again."
+          echo -e "\n⚠️  Breaking change: sonar_comment_token deprecated"
           echo -e "\n\tAction: remove sonar_comment_token parameter\n"
           exit 1
         fi
@@ -110,8 +107,35 @@ runs:
       shell: bash
       working-directory: ${{ inputs.dir }}
       run: |
-        # Run Tests
-        ${{ inputs.commands }}
+        echo "🚀 Running test commands in ${{ inputs.dir }}..."
+        echo "Commands: ${{ inputs.commands }}"
+
+        # Run Tests with error handling
+        if ! (${{ inputs.commands }}); then
+          echo ""
+          echo "❌ Test commands failed!"
+          echo ""
+          echo "🔧 Common troubleshooting steps:"
+          echo "   1. Check if package.json exists and has test scripts"
+          echo "   2. Verify all dependencies are installed (npm ci)"
+          echo "   3. Check if test files exist and are properly configured"
+          echo "   4. Ensure Node.js version compatibility"
+          echo ""
+          echo "📋 Debug information:"
+          echo "   - Working directory: $(pwd)"
+          echo "   - Node version: $(node --version)"
+          echo "   - NPM version: $(npm --version)"
+          echo "   - Available scripts:"
+          if [ -f package.json ]; then
+            npm run 2>/dev/null | grep -E '^  [a-z]' | head -10 || echo "   (no scripts found)"
+          else
+            echo "   (no package.json found)"
+          fi
+          echo ""
+          exit 1
+        fi
+
+        echo "✅ Test commands completed successfully"
 
     ### Optional SonarCloud
 
