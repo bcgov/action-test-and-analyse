@@ -203,12 +203,10 @@ Has the action been triggered by path changes? \[true|false\]
     node_version: "20"
     triggers: ('frontend/')
 
-- name: Check if tests were triggered
-  if: steps.test.outputs.triggered == 'true'
+- if: steps.test.outputs.triggered == 'true'
   run: echo "✅ Tests were triggered by path changes"
 
-- name: Tests not triggered
-  if: steps.test.outputs.triggered != 'true'
+- if: steps.test.outputs.triggered != 'true'
   run: echo "ℹ️ Tests were not triggered (no matching path changes)"
 ```
 
