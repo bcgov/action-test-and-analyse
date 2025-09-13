@@ -26,7 +26,7 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
 # Usage
 
 ```yaml
-- uses: bcgov/action-test-and-analyse@main
+- uses: bcgov/action-test-and-analyse@x.y.z
   with:
     ### Required
 
@@ -112,7 +112,7 @@ jobs:
     name: Test and Analyze
     runs-on: ubuntu-24.04
     steps:
-      - uses: bcgov/action-test-and-analyse@main
+      - uses: bcgov/action-test-and-analyse@x.y.z
         with:
           commands: |
             npm ci
@@ -137,7 +137,7 @@ jobs:
     name: Test and Analyze
     runs-on: ubuntu-24.04
     steps:
-      - uses: bcgov/action-test-and-analyse@main
+      - uses: bcgov/action-test-and-analyse@x.y.z
         with:
           commands: |
             npm ci
@@ -167,7 +167,7 @@ jobs:
             triggers: ('backend/' 'charts/backend')
     steps:
       - uses: actions/checkout@v5
-      - uses: bcgov/action-test-and-analyse@main
+      - uses: bcgov/action-test-and-analyse@x.y.z
         with:
           commands: |
             npm ci
@@ -182,6 +182,32 @@ jobs:
           triggers: ${{ matrix.triggers }}
           repository: bcgov/quickstart-openshift
           branch: main
+```
+
+# Outputs
+
+| Output    | Description                                |
+| --------- | ------------------------------------------ |
+| triggered | Whether the action was triggered based on path changes (true/false) |
+
+Has the action been triggered by path changes? \[true|false\]
+
+```yaml
+- id: test
+  uses: bcgov/action-test-and-analyse@x.y.z
+  with:
+    commands: |
+      npm ci
+      npm run test:cov
+    dir: frontend
+    node_version: "20"
+    triggers: ('frontend/')
+
+- if: steps.test.outputs.triggered == 'true'
+  run: echo "✅ Tests were triggered by path changes"
+
+- if: steps.test.outputs.triggered == 'false'
+  run: echo "ℹ️ Tests were not triggered (no matching path changes)"
 ```
 
 # Sonar Project Token
