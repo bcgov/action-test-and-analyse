@@ -34,6 +34,7 @@ inputs:
 
   sonar_token:
     description: Sonar token, provide unpopulated token for pre-setup (will skip)
+    pattern: "^[a-zA-Z0-9]{20,}$"
 
   triggers:
     description: Paths (array) used to trigger a build; e.g. ('./backend/' './frontend/)
@@ -42,14 +43,17 @@ inputs:
   diff_branch:
     description: Branch to diff against
     default: ${{ github.event.repository.default_branch }}
+    pattern: "^[a-zA-Z0-9._/-]+$"
 
   repository:
     description: Non-default repository to clone (used for testing this action)
     default: ${{ github.repository }}
+    pattern: "^[a-zA-Z0-9-_]+/[a-zA-Z0-9-_]+$"
 
   branch:
     description: Non-default branch to clone (used for testing this action)
     default: ""
+    pattern: "^[a-zA-Z0-9._/-]*$"
 
 outputs:
   triggered:
