@@ -184,6 +184,34 @@ jobs:
           branch: main
 ```
 
+# Outputs
+
+| Output    | Description                                |
+| --------- | ------------------------------------------ |
+| triggered | Whether the action was triggered based on path changes (true/false) |
+
+Has the action been triggered by path changes? \[true|false\]
+
+```yaml
+- id: test
+  uses: bcgov/action-test-and-analyse@main
+  with:
+    commands: |
+      npm ci
+      npm run test:cov
+    dir: frontend
+    node_version: "20"
+    triggers: ('frontend/')
+
+- name: Check if tests were triggered
+  run: |
+    if [ "${{ steps.test.outputs.triggered }}" = "true" ]; then
+      echo "✅ Tests were triggered by path changes"
+    else
+      echo "ℹ️ Tests were not triggered (no matching path changes)"
+    fi
+```
+
 # Sonar Project Token
 
 SonarCloud project tokens are free, available from [SonarCloud] or your organization's aministrators.
