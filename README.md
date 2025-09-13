@@ -206,7 +206,7 @@ Has the action been triggered by path changes? \[true|false\]
 - if: steps.test.outputs.triggered == 'true'
   run: echo "✅ Tests were triggered by path changes"
 
-- if: steps.test.outputs.triggered != 'true'
+- if: steps.test.outputs.triggered == 'false'
   run: echo "ℹ️ Tests were not triggered (no matching path changes)"
 ```
 
