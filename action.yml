@@ -106,36 +106,7 @@ runs:
     - if: steps.diff.outputs.triggered == 'true'
       shell: bash
       working-directory: ${{ inputs.dir }}
-      run: |
-        echo "🚀 Running test commands in ${{ inputs.dir }}..."
-        echo "Commands: ${{ inputs.commands }}"
-
-        # Run Tests with error handling
-        if ! (${{ inputs.commands }}); then
-          echo ""
-          echo "❌ Test commands failed!"
-          echo ""
-          echo "🔧 Common troubleshooting steps:"
-          echo "   1. Check if package.json exists and has test scripts"
-          echo "   2. Verify all dependencies are installed (npm ci)"
-          echo "   3. Check if test files exist and are properly configured"
-          echo "   4. Ensure Node.js version compatibility"
-          echo ""
-          echo "📋 Debug information:"
-          echo "   - Working directory: $(pwd)"
-          echo "   - Node version: $(node --version)"
-          echo "   - NPM version: $(npm --version)"
-          echo "   - Available scripts:"
-          if [ -f package.json ]; then
-            npm run 2>/dev/null | grep -E '^  [a-z]' | head -10 || echo "   (no scripts found)"
-          else
-            echo "   (no package.json found)"
-          fi
-          echo ""
-          exit 1
-        fi
-
-        echo "✅ Test commands completed successfully"
+      run: ${{ inputs.commands }}
 
     ### Optional SonarCloud
 
@@ -149,19 +120,6 @@ runs:
         args: >
           ${{ inputs.sonar_args }}
 
-    ### Cleanup
-
-    # Fix - Docker can take file ownership, causing a cleanup fail
-    - shell: bash
-      if: steps.diff.outputs.triggered == 'true'
-      id: get_uid
-      run: |
-        # User for workstation ownership reset/fix
-        echo "uid=$(id -u ${USER})" >> $GITHUB_OUTPUT
-    - uses: peter-murray/reset-workspace-ownership-action@3c5cbcf2e4aeecb506b3e6bc867e0955dab8dfe0 # v1
-      if: steps.diff.outputs.triggered == 'true'
-      with:
-        user_id: ${{ steps.get_uid.outputs.uid }}
 
     # Fix - Clone for action.yml and other verifications
     - name: Checkout Action repo to pass tests
