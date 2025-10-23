@@ -95,7 +95,7 @@ runs:
         ref: ${{ inputs.branch }}
 
     # Setup node and cache dir
-    - uses: actions/setup-node@v5
+    - uses: actions/setup-node@v6
       if: steps.diff.outputs.triggered == 'true'
       with:
         node-version: ${{ inputs.node_version }}
