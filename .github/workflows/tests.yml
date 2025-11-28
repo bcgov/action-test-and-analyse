@@ -36,7 +36,7 @@ jobs:
             dir: frontend
             expected_triggered: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - id: action
         uses: ./
         with:
