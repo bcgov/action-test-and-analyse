@@ -63,6 +63,11 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     # Optional, defaults to nothing, which forces a build
     triggers: ('frontend/')
 
+    # Enable supply chain attack detection using @aikidosec/safe-chain
+    # Optional, defaults to false (opt-in only)
+    # Detects and blocks malicious packages during npm ci
+    supply_chain_attack_testing: false
+
     ### Usually a bad idea / not recommended
 
     # Overrides the default branch to diff against
@@ -219,6 +224,35 @@ For BC Government projects, please create an [issue for our platform team](https
 After sign up, a token should be available from your project on the [SonarCloud] site.  Multirepo projects (e.g. backend, frontend) will have multiple projects.  Click `Administration > Analysis Method > GitHub Actions (tutorial)` to find yours.
 
 E.g. https://sonarcloud.io/project/configuration?id={<PROJECT>}&analysisMode=GitHubActions
+
+# Supply Chain Attack Testing
+
+This action supports optional supply chain attack detection using [@aikidosec/safe-chain](https://www.npmjs.com/package/@aikidosec/safe-chain). When enabled, safe-chain wraps npm commands to scan packages before installation, protecting against malicious code, typosquats, and suspicious scripts.
+
+**This feature is opt-in only** (default: `false`) to maintain minimal scope and avoid unexpected behavior.
+
+## How to Enable
+
+Set `supply_chain_attack_testing: true` in your workflow:
+
+```yaml
+- uses: bcgov/action-test-and-analyse@x.y.z
+  with:
+    commands: |
+      npm ci
+      npm run test:cov
+    dir: frontend
+    node_version: "20"
+    supply_chain_attack_testing: true
+```
+
+When enabled, safe-chain will:
+- Scan packages against Aikido's threat intelligence database
+- Block known malicious packages and supply chain attacks
+- Automatically install the latest safe version if a new malicious version is detected
+- Protect against typosquatting and suspicious install scripts
+
+No additional configuration or API tokens are required. The scanning happens automatically during `npm ci` and other package manager commands.
 
 # Feedback
 
