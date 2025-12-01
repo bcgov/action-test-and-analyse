@@ -134,9 +134,9 @@ jobs:
           triggers: ('frontend/' 'charts/frontend')
 ```
 
-# Example, Only Running Tests (No SonarCloud), No Triggers
+# Example, Only Running Tests (No SonarCloud, No Supply Chain Scanning), No Triggers
 
-No triggers are provided so tests will always run.  SonarCloud is skipped.
+No triggers are provided so tests will always run.  SonarCloud is skipped, supply chain scanning is skipped.
 
 ```yaml
 jobs:
