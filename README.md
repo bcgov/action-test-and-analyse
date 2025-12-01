@@ -94,7 +94,7 @@ Supply chain scanning has been enabled.
 
 Create or modify a GitHub workflow, like below.  E.g. `./github/workflows/tests.yml`
 
-Note: Provde an unpopulated SONAR_TOKEN until one is provisioned.  SonarCloud will only run once populated, allowing for pre-setup.
+Note: Provide an unpopulated SONAR_TOKEN until one is provisioned.  SonarCloud will only run once populated, allowing for pre-setup.
 
 ```yaml
 name: Test and Analyze
