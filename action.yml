@@ -112,8 +112,9 @@ runs:
       if: steps.diff.outputs.triggered == 'true' && inputs.supply_chain_attack_testing == 'true'
       shell: bash
       run: |
+        set -e
         echo "🔒 Installing @aikidosec/safe-chain for supply chain attack detection..."
-        npm install -g @aikidosec/safe-chain
+        npm install -g @aikidosec/safe-chain@1.1.10
         safe-chain setup-ci
         echo "✅ Safe-chain setup complete"
 
