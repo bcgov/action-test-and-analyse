@@ -114,8 +114,14 @@ runs:
       run: |
         set -e
         echo "🔒 Installing @aikidosec/safe-chain for supply chain attack detection..."
-        npm install -g @aikidosec/safe-chain@1.1.10
-        safe-chain setup-ci
+        if ! npm install -g @aikidosec/safe-chain@1.1.10; then
+          echo "❌ Failed to install @aikidosec/safe-chain"
+          exit 1
+        fi
+        if ! safe-chain setup-ci; then
+          echo "❌ Failed to setup safe-chain"
+          exit 1
+        fi
         echo "✅ Safe-chain setup complete"
 
     # Run tests, hopefully generating coverage for SonarCloud

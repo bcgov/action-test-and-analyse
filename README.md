@@ -56,8 +56,7 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     # Available from sonarcloud.io or your organization administrator
     # BCGov uses https://github.com/BCDevOps/devops-requests/issues/new/choose
     # Provide an unpopulated token for pre-setup, section will be skipped
-    sonar_token:
-      description: ${{ secrets.SONAR_TOKEN }}
+    sonar_token: ${{ secrets.SONAR_TOKEN }}
 
     # Bash array to diff for build triggering
     # Optional, defaults to nothing, which forces a build
@@ -249,7 +248,7 @@ Set `supply_chain_attack_testing: true` in your workflow:
 When enabled, safe-chain will:
 - Scan packages against Aikido's threat intelligence database
 - Block known malicious packages and supply chain attacks
-- During package installation, safe-chain will automatically install the latest safe version if a new malicious version is detected
+- Prevent installation of malicious packages (installation will fail if threats are detected)
 - Protect against typosquatting and suspicious install scripts
 
 No additional configuration or API tokens are required. The scanning happens automatically during `npm ci` and other package manager commands.

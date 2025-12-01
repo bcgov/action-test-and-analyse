@@ -82,12 +82,6 @@ jobs:
               else
                 echo "✅ Frontend-merge job correctly triggered"
               fi
-              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
-                echo "❌ Frontend-supply-chain job should have been triggered (triggers: '.')"
-                exit 1
-              else
-                echo "✅ Frontend-supply-chain job correctly triggered"
-              fi
               ;;
             "frontend-pr")
               if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
