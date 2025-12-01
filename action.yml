@@ -108,7 +108,7 @@ runs:
         cache-dependency-path: ${{ inputs.dir }}/package-lock.json
 
     # Setup supply chain attack detection (opt-in)
-    - name: Setup supply chain attack detection
+    - name: Set up supply chain attack detection
       if: steps.diff.outputs.triggered == 'true' && inputs.supply_chain_attack_testing == 'true'
       shell: bash
       run: |
