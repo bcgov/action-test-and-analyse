@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [backend, frontend-merge, frontend-pr, frontend-supply-chain]
+        name: [backend, frontend-merge, frontend-pr]
         include:
           - name: backend
             dir: backend
@@ -33,14 +33,9 @@ jobs:
             dir: frontend
             triggers: ('.')
             expected_triggered: true
-            supply_chain_attack_testing: false
+            #  supply_chain_attack_testing: false - purposefully commented our to verify defaults
           - name: frontend-pr
             dir: frontend
-            expected_triggered: true
-            supply_chain_attack_testing: false
-          - name: frontend-supply-chain
-            dir: frontend
-            triggers: ('.')
             expected_triggered: true
             supply_chain_attack_testing: true
     steps:
@@ -87,6 +82,12 @@ jobs:
               else
                 echo "✅ Frontend-merge job correctly triggered"
               fi
+              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
+                echo "❌ Frontend-supply-chain job should have been triggered (triggers: '.')"
+                exit 1
+              else
+                echo "✅ Frontend-supply-chain job correctly triggered"
+              fi
               ;;
             "frontend-pr")
               if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
@@ -94,14 +95,6 @@ jobs:
                 exit 1
               else
                 echo "✅ Frontend-pr job correctly triggered"
-              fi
-              ;;
-            "frontend-supply-chain")
-              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
-                echo "❌ Frontend-supply-chain job should have been triggered (triggers: '.')"
-                exit 1
-              else
-                echo "✅ Frontend-supply-chain job correctly triggered"
               fi
               ;;
           esac
