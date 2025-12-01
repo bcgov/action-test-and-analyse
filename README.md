@@ -249,7 +249,7 @@ Set `supply_chain_attack_testing: true` in your workflow:
 When enabled, safe-chain will:
 - Scan packages against Aikido's threat intelligence database
 - Block known malicious packages and supply chain attacks
-- Automatically install the latest safe version if a new malicious version is detected
+- During package installation, safe-chain will automatically install the latest safe version if a new malicious version is detected
 - Protect against typosquatting and suspicious install scripts
 
 No additional configuration or API tokens are required. The scanning happens automatically during `npm ci` and other package manager commands.
