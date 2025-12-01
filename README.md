@@ -15,9 +15,9 @@
 [Issues]: https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue
 [Pull Requests]: https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/working-with-your-remote-repository-on-github-or-github-enterprise/creating-an-issue-or-pull-request
 
-# Test and Analyze with Triggers and SonarCloud
+# Test and Analyze with Triggers, SonarCloud and Supply Chain Scanning
 
-This action runs tests, dependent on triggers, optionally sending results and coverage to [SonarCloud](https://sonarcloud.io).  Test and SonarCloud can be configured to comment on pull requests or stop failing workflows.
+This action runs tests, dependent on triggers, optionally sending results and coverage to [SonarCloud](https://sonarcloud.io).  Test and SonarCloud can be configured to comment on pull requests or stop failing workflows.  Optional supply chain attack detection can be enabled to scan packages before installation.
 
 Conditional triggers are used to determine whether tests need to be run.  If triggers are matched, then the appropriate code has changed and should be tested.  Tests always run if no triggers are provided.  Untriggered runs do little other than report a success.
 
@@ -65,7 +65,7 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     # Enable supply chain attack detection using @aikidosec/safe-chain
     # Optional, defaults to false (opt-in only)
     # Detects and blocks malicious packages during npm ci
-    supply_chain_attack_testing: false
+    supply_scan: false
 
     ### Usually a bad idea / not recommended
 
@@ -84,11 +84,13 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     branch: ""
 ```
 
-# Example, Single Directory with SonarCloud Analysis
+# Example, Single Directory with SonarCloud Analysis and Supply Chain Scanning
 
 Run tests and provide results to SonarCloud.  This is a full workflow that runs on pull requests, merge to main and workflow_dispatch.  Use a GitHub Action secret to provide ${{ secrets.SONAR_TOKEN }}.
 
 The specified triggers will be used to decide whether this job runs tests and analysis or just exists successfully.
+
+Supply chain scanning has been enabled.
 
 Create or modify a GitHub workflow, like below.  E.g. `./github/workflows/tests.yml`
 
@@ -128,6 +130,7 @@ jobs:
             -Dsonar.organization=bcgov-nr
             -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
           sonar_token: ${{ secrets.SONAR_TOKEN }}
+          supply_scan: true
           triggers: ('frontend/' 'charts/frontend')
 ```
 
@@ -232,7 +235,7 @@ This action supports optional supply chain attack detection using [@aikidosec/sa
 
 ## How to Enable
 
-Set `supply_chain_attack_testing: true` in your workflow:
+Set `supply_scan: true` in your workflow:
 
 ```yaml
 - uses: bcgov/action-test-and-analyse@x.y.z
@@ -242,7 +245,7 @@ Set `supply_chain_attack_testing: true` in your workflow:
       npm run test:cov
     dir: frontend
     node_version: "20"
-    supply_chain_attack_testing: true
+    supply_scan: true
 ```
 
 When enabled, safe-chain will:

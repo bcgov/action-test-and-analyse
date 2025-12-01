@@ -40,7 +40,7 @@ inputs:
   triggers:
     description: Paths (array) used to trigger a build; e.g. ('./backend/' './frontend/)
 
-  supply_chain_attack_testing:
+  supply_scan:
     description: Enable supply chain attack detection using @aikidosec/safe-chain (opt-in)
     default: "false"
     pattern: "^(true|false)$"
@@ -109,7 +109,7 @@ runs:
 
     # Setup supply chain attack detection (opt-in)
     - name: Set up supply chain attack detection
-      if: steps.diff.outputs.triggered == 'true' && inputs.supply_chain_attack_testing == 'true'
+      if: steps.diff.outputs.triggered == 'true' && inputs.supply_scan == 'true'
       shell: bash
       run: |
         set -e
@@ -141,7 +141,6 @@ runs:
         projectBaseDir: ${{ inputs.dir }}
         args: >
           ${{ inputs.sonar_args }}
-
 
     # Fix - Clone for action.yml and other verifications
     - name: Checkout Action repo to pass tests

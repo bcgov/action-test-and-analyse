@@ -28,16 +28,16 @@ jobs:
             dir: backend
             triggers: ('backend/')
             expected_triggered: false
-            supply_chain_attack_testing: false
+            supply_scan: false
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
             expected_triggered: true
-            #  supply_chain_attack_testing: false - purposefully commented our to verify defaults
+            #  supply_scan: false - purposefully commented our to verify defaults
           - name: frontend-pr
             dir: frontend
             expected_triggered: true
-            supply_chain_attack_testing: true
+            supply_scan: true
     steps:
       - uses: actions/checkout@v6
       - id: action
@@ -58,7 +58,7 @@ jobs:
             -Dsonar.tests.inclusions=**/*spec.ts
           sonar_token: ${{ matrix.name == 'backend' && secrets.SONAR_TOKEN_BACKEND || secrets.SONAR_TOKEN_FRONTEND }}
           triggers: ${{ matrix.triggers }}
-          supply_chain_attack_testing: ${{ matrix.supply_chain_attack_testing }}
+          supply_scan: ${{ matrix.supply_scan }}
 
       - name: Verify trigger behavior
         run: |
