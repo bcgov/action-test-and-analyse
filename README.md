@@ -250,8 +250,7 @@ Set `supply_scan: true` in your workflow:
 
 When enabled, safe-chain will:
 - Scan packages against Aikido's threat intelligence database
-- Block known malicious packages and supply chain attacks
-- Prevent installation of malicious packages (installation will fail if threats are detected)
+- Block known malicious packages and supply chain attacks (installation will fail if threats are detected)
 - Protect against typosquatting and suspicious install scripts
 
 No additional configuration or API tokens are required. The scanning happens automatically during `npm ci` and other package manager commands.
