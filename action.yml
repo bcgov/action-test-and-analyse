@@ -154,25 +154,52 @@ runs:
 
     # Verify lockfile is up to date with package.json
     - name: Verify lockfile is up to date
-      if: steps.diff.outputs.triggered == 'true' && inputs.lockfile_verify == 'true'
+      if: always() && steps.diff.outputs.triggered == 'true' && inputs.lockfile_verify == 'true'
       shell: bash
       working-directory: ${{ inputs.dir }}
       run: |
         set -e
         
+        # Check if package.json exists
+        if [ ! -f "package.json" ]; then
+          echo "⚠️  No package.json found, skipping lockfile verification"
+          exit 0
+        fi
+        
         # Detect package manager by checking for lockfiles
         LOCKFILE=""
         PM=""
+        LOCKFILES_FOUND=0
+        FOUND_LOCKFILES=()
         
         if [ -f "package-lock.json" ]; then
           LOCKFILE="package-lock.json"
           PM="npm"
-        elif [ -f "yarn.lock" ]; then
-          LOCKFILE="yarn.lock"
-          PM="yarn"
-        elif [ -f "pnpm-lock.yaml" ]; then
-          LOCKFILE="pnpm-lock.yaml"
-          PM="pnpm"
+          ((LOCKFILES_FOUND++))
+          FOUND_LOCKFILES+=("package-lock.json")
+        fi
+        if [ -f "yarn.lock" ]; then
+          if [ -z "$LOCKFILE" ]; then
+            LOCKFILE="yarn.lock"
+            PM="yarn"
+          fi
+          ((LOCKFILES_FOUND++))
+          FOUND_LOCKFILES+=("yarn.lock")
+        fi
+        if [ -f "pnpm-lock.yaml" ]; then
+          if [ -z "$LOCKFILE" ]; then
+            LOCKFILE="pnpm-lock.yaml"
+            PM="pnpm"
+          fi
+          ((LOCKFILES_FOUND++))
+          FOUND_LOCKFILES+=("pnpm-lock.yaml")
+        fi
+        
+        # Fail if multiple lockfiles detected
+        if [ $LOCKFILES_FOUND -gt 1 ]; then
+          echo "❌ Multiple lockfiles detected: ${FOUND_LOCKFILES[*]}"
+          echo "   Please ensure only one lockfile is present to avoid inconsistent package manager usage."
+          exit 1
         fi
         
         # Skip if no lockfile found
@@ -183,24 +210,44 @@ runs:
         
         echo "🔍 Verifying $LOCKFILE is up to date with package.json..."
         
-        # Update lockfile without installing packages
+        # Update lockfile without installing packages, with error handling
         case "$PM" in
           npm)
-            npm install --package-lock-only
+            if ! npm install --package-lock-only; then
+              echo "❌ Failed to update lockfile with npm"
+              exit 1
+            fi
             ;;
           yarn)
-            yarn install --mode update-lockfile
+            # Yarn v2+ (Berry) uses --mode, v1 (Classic) doesn't support it
+            if yarn --version 2>/dev/null | grep -q "^1\."; then
+              # Yarn v1 doesn't have a lockfile-only option, so we run install
+              # This will update yarn.lock if package.json changed
+              if ! yarn install; then
+                echo "❌ Failed to update lockfile with yarn v1"
+                exit 1
+              fi
+            else
+              if ! yarn install --mode update-lockfile; then
+                echo "❌ Failed to update lockfile with yarn"
+                exit 1
+              fi
+            fi
             ;;
           pnpm)
-            pnpm install --lockfile-only
+            if ! pnpm install --lockfile-only; then
+              echo "❌ Failed to update lockfile with pnpm"
+              exit 1
+            fi
             ;;
         esac
         
         # Check if lockfile changed
         if ! git diff --exit-code "$LOCKFILE" > /dev/null 2>&1; then
-          echo "❌ Lockfile is out of date with package.json"
-          echo "   Please run 'npm install', 'yarn install', or 'pnpm install' and commit the updated lockfile"
+          # Restore lockfile before exiting
           git checkout -- "$LOCKFILE"
+          echo "❌ Lockfile is out of date with package.json"
+          echo "   Please run '$PM install' and commit the updated lockfile"
           exit 1
         fi
         
