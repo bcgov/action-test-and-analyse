@@ -88,9 +88,9 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
 
 Run tests and provide results to SonarCloud.  This is a full workflow that runs on pull requests, merge to main and workflow_dispatch.  Use a GitHub Action secret to provide ${{ secrets.SONAR_TOKEN }}.
 
-The specified triggers will be used to decide whether this job runs tests and analysis or just exists successfully.
+The specified triggers will be used to decide whether this job runs tests and analysis or just exits successfully.
 
-Supply chain scanning has been enabled.
+This example also demonstrates enabling supply chain scanning, which adds an additional step to scan packages before installation.
 
 Create or modify a GitHub workflow, like below.  E.g. `./github/workflows/tests.yml`
 
@@ -227,7 +227,7 @@ After sign up, a token should be available from your project on the [SonarCloud]
 
 E.g. https://sonarcloud.io/project/configuration?id={<PROJECT>}&analysisMode=GitHubActions
 
-# Supply Chain Attack Testing
+# Supply Chain Scanning
 
 This action supports optional supply chain attack detection using [@aikidosec/safe-chain](https://www.npmjs.com/package/@aikidosec/safe-chain). When enabled, safe-chain wraps npm commands to scan packages before installation, protecting against malicious code, typosquats, and suspicious scripts.
 
