@@ -169,37 +169,16 @@ runs:
         # Detect package manager by checking for lockfiles
         LOCKFILE=""
         PM=""
-        LOCKFILES_FOUND=0
-        FOUND_LOCKFILES=()
         
         if [ -f "package-lock.json" ]; then
           LOCKFILE="package-lock.json"
           PM="npm"
-          ((LOCKFILES_FOUND++))
-          FOUND_LOCKFILES+=("package-lock.json")
-        fi
-        if [ -f "yarn.lock" ]; then
-          if [ -z "$LOCKFILE" ]; then
-            LOCKFILE="yarn.lock"
-            PM="yarn"
-          fi
-          ((LOCKFILES_FOUND++))
-          FOUND_LOCKFILES+=("yarn.lock")
-        fi
-        if [ -f "pnpm-lock.yaml" ]; then
-          if [ -z "$LOCKFILE" ]; then
-            LOCKFILE="pnpm-lock.yaml"
-            PM="pnpm"
-          fi
-          ((LOCKFILES_FOUND++))
-          FOUND_LOCKFILES+=("pnpm-lock.yaml")
-        fi
-        
-        # Fail if multiple lockfiles detected
-        if [ $LOCKFILES_FOUND -gt 1 ]; then
-          echo "❌ Multiple lockfiles detected: ${FOUND_LOCKFILES[*]}"
-          echo "   Please ensure only one lockfile is present to avoid inconsistent package manager usage."
-          exit 1
+        elif [ -f "yarn.lock" ]; then
+          LOCKFILE="yarn.lock"
+          PM="yarn"
+        elif [ -f "pnpm-lock.yaml" ]; then
+          LOCKFILE="pnpm-lock.yaml"
+          PM="pnpm"
         fi
         
         # Skip if no lockfile found
