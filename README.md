@@ -67,6 +67,11 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     # Detects and blocks malicious packages during npm ci
     supply_scan: false
 
+    # Enable lockfile verification to ensure lockfile is up to date with package.json
+    # Optional, defaults to true
+    # Verifies lockfile matches package.json at the end of the workflow
+    lockfile_verify: true
+
     ### Usually a bad idea / not recommended
 
     # Overrides the default branch to diff against
@@ -259,7 +264,7 @@ No additional configuration or API tokens are required. The scanning happens aut
 
 This action automatically verifies that lockfiles are up to date with `package.json` at the end of each run. This helps catch cases where dependencies are updated in `package.json` but the corresponding lockfile (e.g., `package-lock.json`, `yarn.lock`, or `pnpm-lock.yaml`) is not updated.
 
-**This feature runs automatically** when tests are triggered and does not require any configuration.
+**This feature is enabled by default** (`lockfile_verify: true`) and runs automatically when tests are triggered. You can disable it by setting `lockfile_verify: false`.
 
 ## How It Works
 
@@ -288,6 +293,21 @@ If a lockfile is out of date, the workflow will fail with a clear error message:
 ```
 
 This helps prevent issues where Dependabot or other tools update `package.json` but forget to update the corresponding lockfile.
+
+## How to Disable
+
+If you need to disable lockfile verification, set `lockfile_verify: false`:
+
+```yaml
+- uses: bcgov/action-test-and-analyse@x.y.z
+  with:
+    commands: |
+      npm ci
+      npm run test:cov
+    dir: frontend
+    node_version: "20"
+    lockfile_verify: false
+```
 
 # Feedback
 

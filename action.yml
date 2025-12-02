@@ -45,6 +45,11 @@ inputs:
     default: "false"
     pattern: "^(true|false)$"
 
+  lockfile_verify:
+    description: Enable lockfile verification to ensure lockfile is up to date with package.json
+    default: "true"
+    pattern: "^(true|false)$"
+
   ### Usually a bad idea / not recommended
   diff_branch:
     description: Branch to diff against
@@ -149,7 +154,7 @@ runs:
 
     # Verify lockfile is up to date with package.json
     - name: Verify lockfile is up to date
-      if: steps.diff.outputs.triggered == 'true'
+      if: steps.diff.outputs.triggered == 'true' && inputs.lockfile_verify == 'true'
       shell: bash
       working-directory: ${{ inputs.dir }}
       run: |
