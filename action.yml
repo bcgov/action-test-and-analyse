@@ -40,6 +40,11 @@ inputs:
   triggers:
     description: Paths (array) used to trigger a build; e.g. ('./backend/' './frontend/)
 
+  supply_scan:
+    description: Enable supply chain attack detection using @aikidosec/safe-chain (opt-in)
+    default: "false"
+    pattern: "^(true|false)$"
+
   ### Usually a bad idea / not recommended
   diff_branch:
     description: Branch to diff against
@@ -102,6 +107,23 @@ runs:
         cache: ${{ inputs.cache }}
         cache-dependency-path: ${{ inputs.dir }}/package-lock.json
 
+    # Setup supply chain attack detection (opt-in)
+    - name: Set up supply chain attack detection
+      if: steps.diff.outputs.triggered == 'true' && inputs.supply_scan == 'true'
+      shell: bash
+      run: |
+        set -e
+        echo "🔒 Installing @aikidosec/safe-chain for supply chain attack detection..."
+        if ! npm install -g @aikidosec/safe-chain@1.1.10; then
+          echo "❌ Failed to install @aikidosec/safe-chain"
+          exit 1
+        fi
+        if ! safe-chain setup-ci; then
+          echo "❌ Failed to setup safe-chain"
+          exit 1
+        fi
+        echo "✅ Safe-chain setup complete"
+
     # Run tests, hopefully generating coverage for SonarCloud
     - if: steps.diff.outputs.triggered == 'true'
       shell: bash
@@ -119,7 +141,6 @@ runs:
         projectBaseDir: ${{ inputs.dir }}
         args: >
           ${{ inputs.sonar_args }}
-
 
     # Fix - Clone for action.yml and other verifications
     - name: Checkout Action repo to pass tests
