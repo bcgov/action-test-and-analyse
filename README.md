@@ -15,9 +15,9 @@
 [Issues]: https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue
 [Pull Requests]: https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/working-with-your-remote-repository-on-github-or-github-enterprise/creating-an-issue-or-pull-request
 
-# Test and Analyze with Triggers, SonarCloud and Supply Chain Scanning
+# Test and Analyze with Triggers, SonarCloud, Supply Chain Scanning and Lockfile Verification
 
-This action runs tests, dependent on triggers, optionally sending results and coverage to [SonarCloud](https://sonarcloud.io).  Test and SonarCloud can be configured to comment on pull requests or stop failing workflows.  Optional supply chain attack detection can be enabled to scan packages before installation.
+This action runs tests, dependent on triggers, optionally sending results and coverage to [SonarCloud](https://sonarcloud.io).  Test and SonarCloud can be configured to comment on pull requests or stop failing workflows.  Optional supply chain attack detection can be enabled to scan packages before installation.  Lockfile verification automatically ensures lockfiles are up to date with package.json.
 
 Conditional triggers are used to determine whether tests need to be run.  If triggers are matched, then the appropriate code has changed and should be tested.  Tests always run if no triggers are provided.  Untriggered runs do little other than report a success.
 
@@ -254,6 +254,40 @@ When enabled, safe-chain will:
 - Protect against typosquatting and suspicious install scripts
 
 No additional configuration or API tokens are required. The scanning happens automatically during `npm ci` and other package manager commands.
+
+# Lockfile Verification
+
+This action automatically verifies that lockfiles are up to date with `package.json` at the end of each run. This helps catch cases where dependencies are updated in `package.json` but the corresponding lockfile (e.g., `package-lock.json`, `yarn.lock`, or `pnpm-lock.yaml`) is not updated.
+
+**This feature runs automatically** when tests are triggered and does not require any configuration.
+
+## How It Works
+
+The action automatically:
+1. Detects the package manager by checking for lockfile presence (npm, yarn, or pnpm)
+2. Updates the lockfile without installing packages using package manager-specific flags
+3. Checks if the lockfile changed using git diff
+4. Fails the workflow if the lockfile is out of date
+5. Restores the original lockfile after verification
+
+## Supported Package Managers
+
+- **npm**: Verifies `package-lock.json` using `npm install --package-lock-only`
+- **yarn**: Verifies `yarn.lock` using `yarn install --mode update-lockfile`
+- **pnpm**: Verifies `pnpm-lock.yaml` using `pnpm install --lockfile-only`
+
+If no lockfile is found, verification is skipped gracefully.
+
+## Example Error
+
+If a lockfile is out of date, the workflow will fail with a clear error message:
+
+```
+❌ Lockfile is out of date with package.json
+   Please run 'npm install', 'yarn install', or 'pnpm install' and commit the updated lockfile
+```
+
+This helps prevent issues where Dependabot or other tools update `package.json` but forget to update the corresponding lockfile.
 
 # Feedback
 

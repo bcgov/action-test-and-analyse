@@ -146,3 +146,57 @@ runs:
     - name: Checkout Action repo to pass tests
       if: always() && inputs.repository != github.repository
       uses: actions/checkout@v6
+
+    # Verify lockfile is up to date with package.json
+    - name: Verify lockfile is up to date
+      if: steps.diff.outputs.triggered == 'true'
+      shell: bash
+      working-directory: ${{ inputs.dir }}
+      run: |
+        set -e
+        
+        # Detect package manager by checking for lockfiles
+        LOCKFILE=""
+        PM=""
+        
+        if [ -f "package-lock.json" ]; then
+          LOCKFILE="package-lock.json"
+          PM="npm"
+        elif [ -f "yarn.lock" ]; then
+          LOCKFILE="yarn.lock"
+          PM="yarn"
+        elif [ -f "pnpm-lock.yaml" ]; then
+          LOCKFILE="pnpm-lock.yaml"
+          PM="pnpm"
+        fi
+        
+        # Skip if no lockfile found
+        if [ -z "$LOCKFILE" ]; then
+          echo "ℹ️  No lockfile found, skipping lockfile verification"
+          exit 0
+        fi
+        
+        echo "🔍 Verifying $LOCKFILE is up to date with package.json..."
+        
+        # Update lockfile without installing packages
+        case "$PM" in
+          npm)
+            npm install --package-lock-only
+            ;;
+          yarn)
+            yarn install --mode update-lockfile
+            ;;
+          pnpm)
+            pnpm install --lockfile-only
+            ;;
+        esac
+        
+        # Check if lockfile changed
+        if ! git diff --exit-code "$LOCKFILE" > /dev/null 2>&1; then
+          echo "❌ Lockfile is out of date with package.json"
+          echo "   Please run 'npm install', 'yarn install', or 'pnpm install' and commit the updated lockfile"
+          git checkout -- "$LOCKFILE"
+          exit 1
+        fi
+        
+        echo "✅ Lockfile is up to date"
