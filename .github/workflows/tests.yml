@@ -29,6 +29,7 @@ jobs:
             triggers: ('backend/')
             expected_triggered: false
             supply_scan: false
+            # knip_scan: false - purposefully commented out to verify defaults
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
@@ -38,6 +39,7 @@ jobs:
             dir: frontend
             expected_triggered: true
             supply_scan: true
+            knip_scan: false
     steps:
       - uses: actions/checkout@v6
       - id: action
@@ -59,6 +61,7 @@ jobs:
           sonar_token: ${{ matrix.name == 'backend' && secrets.SONAR_TOKEN_BACKEND || secrets.SONAR_TOKEN_FRONTEND }}
           triggers: ${{ matrix.triggers }}
           supply_scan: ${{ matrix.supply_scan }}
+          knip_scan: ${{ matrix.knip_scan }}
 
       - name: Verify trigger behavior
         run: |
