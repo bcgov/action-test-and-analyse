@@ -45,6 +45,11 @@ inputs:
     default: "false"
     pattern: "^(true|false)$"
 
+  knip_scan:
+    description: Enable dependency and export pruning using Knip for JS/TS projects (opt-in)
+    default: "false"
+    pattern: "^(true|false)$"
+
   ### Usually a bad idea / not recommended
   diff_branch:
     description: Branch to diff against
@@ -123,6 +128,26 @@ runs:
           exit 1
         fi
         echo "✅ Safe-chain setup complete"
+
+    # Setup Knip for dependency and export pruning (opt-in)
+    - name: Run Knip for dependency and export analysis
+      if: steps.diff.outputs.triggered == 'true' && inputs.knip_scan == 'true'
+      shell: bash
+      working-directory: ${{ inputs.dir }}
+      run: |
+        set -e
+        echo "🔍 Installing Knip for dependency and export analysis..."
+        if ! npm install -g knip; then
+          echo "❌ Failed to install Knip"
+          exit 1
+        fi
+        echo "🧹 Running Knip to check for unused dependencies and exports..."
+        if ! knip --dependencies --exports; then
+          echo "⚠️  Knip found unused dependencies or exports"
+          echo "ℹ️  Review the output above to clean up your project"
+          exit 1
+        fi
+        echo "✅ Knip analysis complete - no unused dependencies or exports found"
 
     # Run tests, hopefully generating coverage for SonarCloud
     - if: steps.diff.outputs.triggered == 'true'
