@@ -35,7 +35,7 @@ jobs:
             triggers: ('.')
             expected_triggered: true
             # supply_scan: false - purposefully commented out to verify defaults
-            # dep_scan: false - purposefully commented out to verify defaults
+            dep_scan: true
           - name: frontend-pr
             dir: frontend
             expected_triggered: true

@@ -69,6 +69,7 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
 
     # Enable dependency and export analysis using Knip
     # Optional, defaults to false (opt-in only)
+    # NOTE: This will default to true in a future major release
     # Analyzes JS/TS projects for unused dependencies and exports
     dep_scan: false
 

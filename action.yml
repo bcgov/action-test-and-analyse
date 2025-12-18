@@ -143,7 +143,7 @@ runs:
       run: |
         set -e
         echo "🔍 Installing Knip for dependency and export analysis..."
-        if ! npm install -g knip@5.73.4; then
+        if ! npm install -g knip; then
           echo "❌ Failed to install Knip"
           exit 1
         fi
