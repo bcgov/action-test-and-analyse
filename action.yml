@@ -46,7 +46,7 @@ inputs:
     pattern: "^(true|false)$"
 
   knip_scan:
-    description: Enable dependency and export pruning using Knip for JS/TS projects (opt-in)
+    description: Enable dependency and export analysis using Knip for JS/TS projects (opt-in)
     default: "false"
     pattern: "^(true|false)$"
 
