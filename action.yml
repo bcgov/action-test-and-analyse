@@ -129,6 +129,12 @@ runs:
         fi
         echo "✅ Safe-chain setup complete"
 
+    # Run tests, hopefully generating coverage for SonarCloud
+    - if: steps.diff.outputs.triggered == 'true'
+      shell: bash
+      working-directory: ${{ inputs.dir }}
+      run: ${{ inputs.commands }}
+
     # Setup Knip for dependency and export analysis (opt-in)
     - name: Run Knip for dependency and export analysis
       if: steps.diff.outputs.triggered == 'true' && inputs.knip_scan == 'true'
@@ -148,12 +154,6 @@ runs:
           exit 1
         fi
         echo "✅ Knip analysis complete - no unused dependencies or exports found"
-
-    # Run tests, hopefully generating coverage for SonarCloud
-    - if: steps.diff.outputs.triggered == 'true'
-      shell: bash
-      working-directory: ${{ inputs.dir }}
-      run: ${{ inputs.commands }}
 
     ### Optional SonarCloud
 
