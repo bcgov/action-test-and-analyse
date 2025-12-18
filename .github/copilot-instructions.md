@@ -1,6 +1,29 @@
 # Project-Specific Copilot Instructions
 
-This file contains project-specific instructions for GitHub Copilot. The upstream standards are defined in `.github/copilot-upstream.md`.
+This file contains project-specific instructions for GitHub Copilot. 
+
+**Upstream Standards**: BCGov standard Copilot instructions are maintained at [bcgov/copilot-instructions](https://github.com/bcgov/copilot-instructions). To use them:
+
+1. **Recommended**: Configure VS Code globally to use the upstream instructions:
+   ```bash
+   # Download upstream instructions
+   mkdir -p ~/.config
+   curl -Lo ~/.config/copilot-upstream.md https://raw.githubusercontent.com/bcgov/copilot-instructions/main/.github/copilot-upstream.md
+   ```
+   
+   Then add to your VS Code `settings.json`:
+   ```json
+   {
+     "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+     "github.copilot.chat.codeGeneration.instructions": [
+       {
+         "file": "/home/<YOUR_USER_NAME>/.config/copilot-upstream.md"
+       }
+     ]
+   }
+   ```
+
+2. **Alternative**: View the upstream instructions at: https://github.com/bcgov/copilot-instructions/blob/main/.github/copilot-upstream.md
 
 ## Project Overview
 
