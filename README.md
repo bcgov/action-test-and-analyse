@@ -67,7 +67,7 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     # Detects and blocks malicious packages during npm ci
     supply_scan: false
 
-    # Enable dependency and export pruning using Knip
+    # Enable dependency and export analysis using Knip
     # Optional, defaults to false (opt-in only)
     # Analyzes JS/TS projects for unused dependencies and exports
     knip_scan: false
