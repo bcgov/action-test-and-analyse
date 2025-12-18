@@ -70,7 +70,7 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     # Enable dependency and export analysis using Knip
     # Optional, defaults to false (opt-in only)
     # Analyzes JS/TS projects for unused dependencies and exports
-    knip_scan: false
+    dep_scan: false
 
     ### Usually a bad idea / not recommended
 
@@ -136,7 +136,7 @@ jobs:
             -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
           sonar_token: ${{ secrets.SONAR_TOKEN }}
           supply_scan: true
-          knip_scan: true
+          dep_scan: true
           triggers: ('frontend/' 'charts/frontend')
 ```
 
@@ -269,7 +269,7 @@ This action supports optional dependency and export analysis using [Knip](https:
 
 ## How to Enable
 
-Set `knip_scan: true` in your workflow:
+Set `dep_scan: true` in your workflow:
 
 ```yaml
 - uses: bcgov/action-test-and-analyse@x.y.z
@@ -279,7 +279,7 @@ Set `knip_scan: true` in your workflow:
       npm run test:cov
     dir: frontend
     node_version: "20"
-    knip_scan: true
+    dep_scan: true
 ```
 
 When enabled, Knip will:
