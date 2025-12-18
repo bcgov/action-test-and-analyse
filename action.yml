@@ -129,7 +129,7 @@ runs:
         fi
         echo "✅ Safe-chain setup complete"
 
-    # Setup Knip for dependency and export pruning (opt-in)
+    # Setup Knip for dependency and export analysis (opt-in)
     - name: Run Knip for dependency and export analysis
       if: steps.diff.outputs.triggered == 'true' && inputs.knip_scan == 'true'
       shell: bash
