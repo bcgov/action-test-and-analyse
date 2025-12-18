@@ -1,8 +1,6 @@
-# Project-Specific Copilot Instructions
+# Copilot Instructions
 
-This file contains project-specific instructions for GitHub Copilot.
-
-**Upstream Standards**: BCGov standard Copilot instructions are maintained at [bcgov/copilot-instructions](https://github.com/bcgov/copilot-instructions). See that repository for setup instructions to configure the upstream instructions globally in VS Code so they apply across all BCGov repositories.
+This file contains instructions for GitHub Copilot when working on this repository.
 
 ## Project Overview
 
