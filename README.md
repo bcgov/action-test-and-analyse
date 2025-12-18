@@ -15,7 +15,7 @@
 [Issues]: https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue
 [Pull Requests]: https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/working-with-your-remote-repository-on-github-or-github-enterprise/creating-an-issue-or-pull-request
 
-# Test and Analyze with Triggers, SonarCloud, Supply Chain Scanning and Knip
+# Test and Analyze with Triggers, SonarCloud, Supply Chain Scanning and Dependency/Export Analysis
 
 This action runs tests, dependent on triggers, optionally sending results and coverage to [SonarCloud](https://sonarcloud.io).  Test and SonarCloud can be configured to comment on pull requests or stop failing workflows.  Optional supply chain attack detection can be enabled to scan packages before installation.  Optional Knip analysis can be enabled to detect unused dependencies and exports in JavaScript/TypeScript projects.
 
@@ -89,7 +89,7 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     branch: ""
 ```
 
-# Example, Single Directory with SonarCloud Analysis, Supply Chain Scanning, and Knip
+# Example, Single Directory with SonarCloud Analysis, Supply Chain Scanning, and Dependency/Export Analysis
 
 Run tests and provide results to SonarCloud.  This is a full workflow that runs on pull requests, merge to main and workflow_dispatch.  Use a GitHub Action secret to provide ${{ secrets.SONAR_TOKEN }}.
 
@@ -140,9 +140,9 @@ jobs:
           triggers: ('frontend/' 'charts/frontend')
 ```
 
-# Example, Only Running Tests (No SonarCloud, No Supply Chain Scanning, No Knip), No Triggers
+# Example, Only Running Tests (No SonarCloud, No Supply Chain Scanning, No Dependency/Export Analysis), No Triggers
 
-No triggers are provided so tests will always run.  SonarCloud is skipped, supply chain scanning is skipped, and Knip is skipped.
+No triggers are provided so tests will always run.  SonarCloud is skipped, supply chain scanning is skipped, and dependency/export analysis is skipped.
 
 ```yaml
 jobs:
