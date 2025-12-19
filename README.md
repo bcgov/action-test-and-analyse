@@ -15,9 +15,9 @@
 [Issues]: https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue
 [Pull Requests]: https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/working-with-your-remote-repository-on-github-or-github-enterprise/creating-an-issue-or-pull-request
 
-# Test and Analyze with Triggers, SonarCloud and Supply Chain Scanning
+# Test and Analyze with Triggers, SonarCloud, Supply Chain Scanning and Dependency/Export Analysis
 
-This action runs tests, dependent on triggers, optionally sending results and coverage to [SonarCloud](https://sonarcloud.io).  Test and SonarCloud can be configured to comment on pull requests or stop failing workflows.  Optional supply chain attack detection can be enabled to scan packages before installation.
+This action runs tests, dependent on triggers, optionally sending results and coverage to [SonarCloud](https://sonarcloud.io).  Test and SonarCloud can be configured to comment on pull requests or stop failing workflows.  Optional supply chain attack detection can be enabled to scan packages before installation.  Optional Knip analysis can be enabled to detect unused dependencies and exports in JavaScript/TypeScript projects.
 
 Conditional triggers are used to determine whether tests need to be run.  If triggers are matched, then the appropriate code has changed and should be tested.  Tests always run if no triggers are provided.  Untriggered runs do little other than report a success.
 
@@ -67,6 +67,12 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     # Detects and blocks malicious packages during npm ci
     supply_scan: false
 
+    # Enable dependency and export analysis using Knip
+    # Optional, defaults to false (opt-in only)
+    # NOTE: This will default to true in a future major release
+    # Analyzes JS/TS projects for unused dependencies and exports
+    dep_scan: false
+
     ### Usually a bad idea / not recommended
 
     # Overrides the default branch to diff against
@@ -84,13 +90,13 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     branch: ""
 ```
 
-# Example, Single Directory with SonarCloud Analysis and Supply Chain Scanning
+# Example, Single Directory with SonarCloud Analysis, Supply Chain Scanning, and Dependency/Export Analysis
 
 Run tests and provide results to SonarCloud.  This is a full workflow that runs on pull requests, merge to main and workflow_dispatch.  Use a GitHub Action secret to provide ${{ secrets.SONAR_TOKEN }}.
 
 The specified triggers will be used to decide whether this job runs tests and analysis or just exits successfully.
 
-This example also demonstrates enabling supply chain scanning, which adds an additional step to scan packages before installation.
+This example demonstrates enabling both supply chain scanning (scans packages before installation) and Knip analysis (detects unused dependencies and exports).
 
 Create or modify a GitHub workflow, like below.  E.g. `./github/workflows/tests.yml`
 
@@ -131,12 +137,13 @@ jobs:
             -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
           sonar_token: ${{ secrets.SONAR_TOKEN }}
           supply_scan: true
+          dep_scan: true
           triggers: ('frontend/' 'charts/frontend')
 ```
 
-# Example, Only Running Tests (No SonarCloud, No Supply Chain Scanning), No Triggers
+# Example, Only Running Tests (No SonarCloud, No Supply Chain Scanning, No Dependency/Export Analysis), No Triggers
 
-No triggers are provided so tests will always run.  SonarCloud is skipped, supply chain scanning is skipped.
+No triggers are provided so tests will always run.  SonarCloud is skipped, supply chain scanning is skipped, and dependency/export analysis is skipped.
 
 ```yaml
 jobs:
@@ -254,6 +261,42 @@ When enabled, safe-chain will:
 - Protect against typosquatting and suspicious install scripts
 
 No additional configuration or API tokens are required. The scanning happens automatically during `npm ci` and other package manager commands.
+
+# Knip - Dependency and Export Analysis
+
+This action supports optional dependency and export analysis using [Knip](https://knip.dev/). When enabled, Knip scans JavaScript/TypeScript projects to identify unused dependencies, devDependencies, and exports, helping keep your codebase clean and maintainable.
+
+**This feature is opt-in only** (default: `false`) to maintain minimal scope and avoid unexpected behavior.
+
+## How to Enable
+
+Set `dep_scan: true` in your workflow:
+
+```yaml
+- uses: bcgov/action-test-and-analyse@x.y.z
+  with:
+    commands: |
+      npm ci
+      npm run test:cov
+    dir: frontend
+    node_version: "20"
+    dep_scan: true
+```
+
+When enabled, Knip will:
+- Analyze your project for unused dependencies and devDependencies
+- Detect unused exports that can be removed
+- Fail the workflow if unused dependencies or exports are found, encouraging cleanup
+
+This helps maintain a lean dependency footprint and reduces security surface area by removing unnecessary packages.
+
+## Requirements
+
+- JavaScript or TypeScript projects only
+- Project must have a `package.json` file
+- Works best with projects that have clear entry points defined in configuration
+
+Knip supports many JavaScript/TypeScript tools and frameworks out of the box. For advanced configuration, you can add a `knip.json` or `knip.ts` configuration file to your project root. See [Knip documentation](https://knip.dev/) for configuration options.
 
 # Feedback
 
