@@ -94,3 +94,27 @@ jobs:
           esac
 
           echo "🎉 ${{ matrix.name }} trigger behavior verified correctly!"
+
+  sonarcloud-analysis:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-24.04
+    needs: tests
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./
+        with:
+          commands: |
+            npm ci
+            npm run test:cov
+          dir: frontend
+          node_version: "20"
+          repository: bcgov/quickstart-openshift
+          sonar_args: >
+            -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
+            -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
+            -Dsonar.organization=bcgov-nr
+            -Dsonar.projectKey=bcgov-nr_action-test-and-analyse
+            -Dsonar.sources=src
+            -Dsonar.tests.inclusions=**/*spec.ts
+          sonar_token: ${{ secrets.SONAR_TOKEN_FRONTEND }}
+          triggers: ('.')
