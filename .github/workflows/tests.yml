@@ -29,15 +29,18 @@ jobs:
             triggers: ('backend/')
             expected_triggered: false
             supply_scan: false
+            dep_scan: true
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
             expected_triggered: true
             # supply_scan: false - purposefully commented out to verify defaults
+            dep_scan: true
           - name: frontend-pr
             dir: frontend
             expected_triggered: true
             supply_scan: true
+            dep_scan: false
     steps:
       - uses: actions/checkout@v6
       - id: action
@@ -59,6 +62,7 @@ jobs:
           sonar_token: ${{ matrix.name == 'backend' && secrets.SONAR_TOKEN_BACKEND || secrets.SONAR_TOKEN_FRONTEND }}
           triggers: ${{ matrix.triggers }}
           supply_scan: ${{ matrix.supply_scan }}
+          dep_scan: ${{ matrix.dep_scan }}
 
       - name: Verify trigger behavior
         run: |

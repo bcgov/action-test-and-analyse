@@ -45,6 +45,11 @@ inputs:
     default: "false"
     pattern: "^(true|false)$"
 
+  dep_scan:
+    description: Enable dependency and export analysis using Knip for JS/TS projects (opt-in)
+    default: "false"
+    pattern: "^(true|false)$"
+
   ### Usually a bad idea / not recommended
   diff_branch:
     description: Branch to diff against
@@ -130,11 +135,31 @@ runs:
       working-directory: ${{ inputs.dir }}
       run: ${{ inputs.commands }}
 
+    # Setup Knip for dependency and export analysis (opt-in)
+    - name: Run Knip for dependency and export analysis
+      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan == 'true'
+      shell: bash
+      working-directory: ${{ inputs.dir }}
+      run: |
+        set -e
+        echo "🔍 Installing Knip for dependency and export analysis..."
+        if ! npm install -g knip; then
+          echo "❌ Failed to install Knip"
+          exit 1
+        fi
+        echo "🧹 Running Knip to check for unused dependencies and exports..."
+        if ! knip --dependencies --exports; then
+          echo "⚠️  Knip found unused dependencies or exports"
+          echo "ℹ️  Review the output above to clean up your project"
+          exit 1
+        fi
+        echo "✅ Knip analysis complete - no unused dependencies or exports found"
+
     ### Optional SonarCloud
 
     # If sonar_token
     - if: inputs.sonar_token && steps.diff.outputs.triggered == 'true'
-      uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
+      uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9 # v7.0.0
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
       with:
