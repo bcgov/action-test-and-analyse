@@ -1,0 +1,12 @@
+{
+  "ignoreDependencies": [
+    "swagger-ui-express",
+    "rimraf",
+    "@types/node",
+    "@types/react",
+    "@types/react-dom"
+  ],
+  "ignoreBinaries": [
+    "rimraf"
+  ]
+}
