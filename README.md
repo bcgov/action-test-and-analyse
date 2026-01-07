@@ -68,10 +68,10 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     supply_scan: false
 
     # Enable dependency and export analysis using Knip
-    # Optional, defaults to false (opt-in only)
-    # NOTE: This will default to true in a future major release
+    # Optional, defaults to warn (runs but doesn't fail)
+    # Options: off (skip), warn (run but don't fail), error (run and fail on issues)
     # Analyzes JS/TS projects for unused dependencies and exports
-    dep_scan: false
+    dep_scan: warn
 
     ### Usually a bad idea / not recommended
 
@@ -137,7 +137,7 @@ jobs:
             -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
           sonar_token: ${{ secrets.SONAR_TOKEN }}
           supply_scan: true
-          dep_scan: true
+          dep_scan: error
           triggers: ('frontend/' 'charts/frontend')
 ```
 
@@ -268,9 +268,15 @@ This action supports optional dependency and export analysis using [Knip](https:
 
 **This feature is opt-in only** (default: `false`) to maintain minimal scope and avoid unexpected behavior.
 
-## How to Enable
+## How to Use
 
-Set `dep_scan: true` in your workflow:
+The `dep_scan` parameter supports three modes:
+
+- **`off`** - Skip Knip analysis entirely
+- **`warn`** - Run Knip and show issues, but don't fail the workflow (default)
+- **`error`** - Run Knip and fail the workflow if issues are found
+
+### Example: Warn Mode (Default)
 
 ```yaml
 - uses: bcgov/action-test-and-analyse@x.y.z
@@ -280,13 +286,27 @@ Set `dep_scan: true` in your workflow:
       npm run test:cov
     dir: frontend
     node_version: "20"
-    dep_scan: true
+    dep_scan: warn  # or omit to use default
+```
+
+### Example: Error Mode (Enforce Cleanup)
+
+```yaml
+- uses: bcgov/action-test-and-analyse@x.y.z
+  with:
+    commands: |
+      npm ci
+      npm run test:cov
+    dir: frontend
+    node_version: "20"
+    dep_scan: error
 ```
 
 When enabled, Knip will:
 - Analyze your project for unused dependencies and devDependencies
 - Detect unused exports that can be removed
-- Fail the workflow if unused dependencies or exports are found, encouraging cleanup
+- In `error` mode: Fail the workflow if unused dependencies or exports are found, encouraging cleanup
+- In `warn` mode: Show issues without failing, allowing teams to see problems without blocking builds
 
 This helps maintain a lean dependency footprint and reduces security surface area by removing unnecessary packages.
 

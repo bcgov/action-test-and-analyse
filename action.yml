@@ -46,14 +46,14 @@ inputs:
     pattern: "^(true|false)$"
 
   dep_scan:
-    description: Enable dependency and export analysis using Knip for JS/TS projects. Options: false (skip), warn (run but don't fail), true (run and fail on issues)
+    description: Enable dependency and export analysis using Knip for JS/TS projects. Options: off (skip), warn (run but don't fail), error (run and fail on issues)
     required: false
     default: 'warn'
     type: choice
     options:
-      - 'false'
+      - 'off'
       - 'warn'
-      - 'true'
+      - 'error'
 
   ### Usually a bad idea / not recommended
   diff_branch:
@@ -142,7 +142,7 @@ runs:
 
     # Setup Knip for dependency and export analysis (opt-in)
     - name: Run Knip for dependency and export analysis
-      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'false'
+      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
       shell: bash
       run: |
         set -e
@@ -187,7 +187,7 @@ runs:
             echo "⚠️  Running in warn mode - workflow will continue"
             exit 0
           else
-            # dep_scan is 'true' - fail the workflow
+            # dep_scan is 'error' - fail the workflow
             exit $KNIP_EXIT_CODE
           fi
         fi

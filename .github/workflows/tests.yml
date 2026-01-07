@@ -29,18 +29,18 @@ jobs:
             triggers: ('backend/')
             expected_triggered: false
             supply_scan: false
-            dep_scan: true
+            dep_scan: error
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
             expected_triggered: true
             # supply_scan: false - purposefully commented out to verify defaults
-            dep_scan: true
+            dep_scan: error
           - name: frontend-pr
             dir: frontend
             expected_triggered: true
             supply_scan: true
-            dep_scan: false
+            dep_scan: off
     steps:
       - uses: actions/checkout@v6
       - id: action
