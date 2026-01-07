@@ -46,14 +46,10 @@ inputs:
     pattern: "^(true|false)$"
 
   dep_scan:
-    description: Enable dependency and export analysis using Knip for JS/TS projects. Options: off (skip), warn (run but don't fail), error (run and fail on issues)
+    description: 'Enable dependency and export analysis using Knip for JS/TS projects. Options: off (skip), warn (run but don''t fail), error (run and fail on issues)'
     required: false
     default: 'warn'
-    type: choice
-    options:
-      - 'off'
-      - 'warn'
-      - 'error'
+    pattern: "^(off|warn|error)$"
 
   ### Usually a bad idea / not recommended
   diff_branch:
