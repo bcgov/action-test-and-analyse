@@ -264,9 +264,9 @@ No additional configuration or API tokens are required. The scanning happens aut
 
 # Knip - Dependency and Export Analysis
 
-This action supports optional dependency and export analysis using [Knip](https://knip.dev/). When enabled, Knip scans JavaScript/TypeScript projects to identify unused dependencies, devDependencies, and exports, helping keep your codebase clean and maintainable.
+This action supports dependency and export analysis using [Knip](https://knip.dev/). When enabled, Knip scans JavaScript/TypeScript projects to identify unused dependencies, devDependencies, and exports, helping keep your codebase clean and maintainable.
 
-**This feature is opt-in only** (default: `false`) to maintain minimal scope and avoid unexpected behavior.
+**Default behavior**: Runs in `warn` mode (shows issues without failing) to encourage adoption without blocking builds. You can disable with `dep_scan: off` or enforce with `dep_scan: error`.
 
 ## How to Use
 
@@ -310,13 +310,63 @@ When enabled, Knip will:
 
 This helps maintain a lean dependency footprint and reduces security surface area by removing unnecessary packages.
 
+## Default Configuration
+
+The action provides a default `.kniprc.json` configuration with common exceptions to reduce false positives:
+
+- **Peer dependencies** that are dynamically required (e.g., `swagger-ui-express` for NestJS's SwaggerModule)
+- **Build tools** used in scripts (e.g., `rimraf`)
+- **TypeScript type packages** (e.g., `@types/node`, `@types/react`, `@types/react-dom`)
+
+If your project doesn't have its own `.kniprc.json`, the action will automatically use this default configuration.
+
+## Custom Configuration
+
+You can override the default configuration by creating your own `.kniprc.json` file in your project's root directory (or in the directory specified by the `dir` parameter). The action will detect and use your project's configuration file instead of the default.
+
+### Common Exclusion Options
+
+Knip provides several ways to exclude packages and files from analysis:
+
+- **`ignoreDependencies`** - Exclude specific packages from dependency analysis (supports regular expressions)
+  ```json
+  {
+    "ignoreDependencies": ["hidden-package", "@org/.+"]
+  }
+  ```
+
+- **`ignoreBinaries`** - Exclude binaries that aren't provided by dependencies
+  ```json
+  {
+    "ignoreBinaries": ["zip", "docker-compose"]
+  }
+  ```
+
+- **`ignore`** - Suppress all issue types for matching files/patterns
+  ```json
+  {
+    "ignore": ["**/*.d.ts", "**/fixtures"]
+  }
+  ```
+
+- **`ignoreWorkspaces`** - Exclude workspaces in monorepos
+  ```json
+  {
+    "ignoreWorkspaces": ["packages/go-server"]
+  }
+  ```
+
+- **`ignoreExports`** - Ignore specific exports from analysis
+
+For complete configuration options, see the [Knip documentation](https://knip.dev/reference/configuration).
+
 ## Requirements
 
 - JavaScript or TypeScript projects only
 - Project must have a `package.json` file
 - Works best with projects that have clear entry points defined in configuration
 
-Knip supports many JavaScript/TypeScript tools and frameworks out of the box. For advanced configuration, you can add a `knip.json` or `knip.ts` configuration file to your project root. See [Knip documentation](https://knip.dev/) for configuration options.
+Knip supports many JavaScript/TypeScript tools and frameworks out of the box. For advanced configuration beyond exclusions, you can also use `knip.json` or `knip.ts` configuration files. See [Knip documentation](https://knip.dev/) for all available options.
 
 # Feedback
 
