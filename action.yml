@@ -46,10 +46,10 @@ inputs:
     pattern: "^(true|false)$"
 
   dep_scan:
-    description: "Enable dependency and export analysis using Knip for JS/TS projects. Options: off (skip), warn (run but don't fail), error (run and fail on issues)"
+    description: "Enable dependency and export analysis using Knip for JS/TS projects. Options: off/false (skip), warn (run but don't fail), error/true (run and fail on issues)"
     required: false
     default: "warn"
-    pattern: "^(off|warn|error)$"
+    pattern: "^(off|false|warn|error|true)$"
 
   knip_config:
     description: "Path to custom Knip configuration file (relative to workspace root). If not provided, uses default behavior (checks for .knip.json in project dir, falls back to action's default)"
@@ -143,7 +143,7 @@ runs:
 
     # Setup Knip for dependency and export analysis (opt-in)
     - name: Run Knip for dependency and export analysis
-      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
+      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off' && inputs.dep_scan != 'false'
       shell: bash
       run: |
         set -e
@@ -222,11 +222,19 @@ runs:
           echo "ℹ️  Review the output above to clean up your project"
           
           # If dep_scan is 'warn', don't fail the workflow
-          if [ "${{ inputs.dep_scan }}" = "warn" ]; then
+          # Normalize aliases: 'false' -> 'off', 'true' -> 'error'
+          DEP_SCAN_VALUE="${{ inputs.dep_scan }}"
+          if [ "$DEP_SCAN_VALUE" = "false" ]; then
+            DEP_SCAN_VALUE="off"
+          elif [ "$DEP_SCAN_VALUE" = "true" ]; then
+            DEP_SCAN_VALUE="error"
+          fi
+          
+          if [ "$DEP_SCAN_VALUE" = "warn" ]; then
             echo "⚠️  Running in warn mode - workflow will continue"
             exit 0
           else
-            # dep_scan is 'error' - fail the workflow
+            # dep_scan is 'error' or 'true' - fail the workflow
             exit $KNIP_EXIT_CODE
           fi
         fi
