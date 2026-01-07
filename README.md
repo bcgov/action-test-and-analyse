@@ -312,13 +312,21 @@ This helps maintain a lean dependency footprint and reduces security surface are
 
 ## Default Configuration
 
-The action provides a default `.knip.json` configuration with common exceptions to reduce false positives:
+The action provides a default `.knip.json` configuration with common exceptions to reduce false positives. If your project doesn't have its own `.knip.json`, the action will automatically use this default configuration.
 
-- **Peer dependencies** that are dynamically required (e.g., `swagger-ui-express` for NestJS's SwaggerModule)
-- **Build tools** used in scripts (e.g., `rimraf`)
-- **TypeScript type packages** (e.g., `@types/node`, `@types/react`, `@types/react-dom`)
+### Why These Packages Are Excluded
 
-If your project doesn't have its own `.knip.json`, the action will automatically use this default configuration.
+The default configuration excludes the following packages that are commonly flagged as unused but are actually needed:
+
+- **`swagger-ui-express`** - Peer dependency for NestJS's `SwaggerModule.setup()`. NestJS dynamically requires this package at runtime, so Knip doesn't detect it as used. This is a common pattern with peer dependencies that are loaded dynamically.
+
+- **`rimraf`** - Build tool commonly used in npm scripts (e.g., `"clean": "rimraf dist"`). Knip may flag it as unused because it's referenced in `package.json` scripts rather than imported in code. It's also listed in `ignoreBinaries` since it's used as a command-line tool.
+
+- **`@types/node`** - TypeScript type definitions for Node.js. These are used by the TypeScript compiler for type checking but aren't directly imported in source code, so Knip may flag them as unused.
+
+- **`@types/react`** and **`@types/react-dom`** - TypeScript type definitions for React. Similar to `@types/node`, these are used by the TypeScript compiler but may not appear as direct imports in your codebase.
+
+If you encounter other packages that are legitimately used but flagged by Knip, you can add them to your own `.knip.json` configuration file (see Custom Configuration below).
 
 ## Custom Configuration
 
