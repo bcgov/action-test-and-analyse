@@ -312,17 +312,17 @@ This helps maintain a lean dependency footprint and reduces security surface are
 
 ## Default Configuration
 
-The action provides a default `.kniprc.json` configuration with common exceptions to reduce false positives:
+The action provides a default `.knip.json` configuration with common exceptions to reduce false positives:
 
 - **Peer dependencies** that are dynamically required (e.g., `swagger-ui-express` for NestJS's SwaggerModule)
 - **Build tools** used in scripts (e.g., `rimraf`)
 - **TypeScript type packages** (e.g., `@types/node`, `@types/react`, `@types/react-dom`)
 
-If your project doesn't have its own `.kniprc.json`, the action will automatically use this default configuration.
+If your project doesn't have its own `.knip.json`, the action will automatically use this default configuration.
 
 ## Custom Configuration
 
-You can override the default configuration by creating your own `.kniprc.json` file in your project's root directory (or in the directory specified by the `dir` parameter). The action will detect and use your project's configuration file instead of the default.
+You can override the default configuration by creating your own `.knip.json` file in your project's root directory (or in the directory specified by the `dir` parameter). The action will detect and use your project's configuration file instead of the default.
 
 ### Common Exclusion Options
 
