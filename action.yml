@@ -55,6 +55,7 @@ inputs:
     description: "Path to custom Knip configuration file (relative to workspace root). If not provided, uses default behavior (checks for .knip.json in project dir, falls back to action's default)"
     required: false
     default: ""
+    pattern: "^[a-zA-Z0-9._/-]*$"
 
   ### Usually a bad idea / not recommended
   diff_branch:
@@ -173,12 +174,20 @@ runs:
         USING_DEFAULT_CONFIG=false
         
         if [ -z "$KNIP_CONFIG_ARG" ]; then
-          # Default behavior: Use project's .knip.json if it exists, otherwise use default from action
-          PROJECT_KNIP=".knip.json"
+          # Default behavior: Use project's Knip config if it exists, otherwise use default from action
+          # Check for all standard Knip configuration file formats
+          PROJECT_KNIP=""
+          for config_file in ".knip.json" "knip.json" ".knip.jsonc" "knip.jsonc" "knip.ts" "knip.js" "knip.config.ts" "knip.config.js"; do
+            if [ -f "$config_file" ]; then
+              PROJECT_KNIP="$config_file"
+              break
+            fi
+          done
           
-          if [ ! -f "$PROJECT_KNIP" ]; then
-            echo "ℹ️ No project .knip.json found, using default configuration..."
+          if [ -z "$PROJECT_KNIP" ]; then
+            echo "ℹ️ No project Knip config found, using default configuration..."
             USING_DEFAULT_CONFIG=true
+            PROJECT_KNIP=".knip.json"
             
             # Try multiple paths to find the default config
             DEFAULT_KNIP=""
@@ -199,7 +208,7 @@ runs:
               echo "✅ Applied default .knip.json with common exceptions"
             fi
           else
-            echo "ℹ️  Using project's existing .knip.json"
+            echo "ℹ️  Using project's existing Knip config: $PROJECT_KNIP"
           fi
         fi
         
