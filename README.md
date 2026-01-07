@@ -330,7 +330,7 @@ The default configuration excludes the following packages that are commonly flag
 
 You can override the default configuration by creating your own `.knip.json` file in your project's root directory (or in the directory specified by the `dir` parameter). The action will detect and use your project's configuration file instead of the default.
 
-Your contributions are greatly appreciated, so please send up your suggestions by writing an issue or sending a PR!
+Even better, tell us when you encounter false positives!  Your contributions are greatly appreciated, so please send suggestions by writing an issue or sending a PR.
 
 ### Common Exclusion Options
 
