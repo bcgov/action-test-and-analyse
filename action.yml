@@ -46,9 +46,14 @@ inputs:
     pattern: "^(true|false)$"
 
   dep_scan:
-    description: Enable dependency and export analysis using Knip for JS/TS projects (opt-in)
-    default: "false"
-    pattern: "^(true|false)$"
+    description: Enable dependency and export analysis using Knip for JS/TS projects. Options: false (skip), warn (run but don't fail), true (run and fail on issues)
+    required: false
+    default: 'warn'
+    type: choice
+    options:
+      - 'false'
+      - 'warn'
+      - 'true'
 
   ### Usually a bad idea / not recommended
   diff_branch:
@@ -137,7 +142,7 @@ runs:
 
     # Setup Knip for dependency and export analysis (opt-in)
     - name: Run Knip for dependency and export analysis
-      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan == 'true'
+      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'false'
       shell: bash
       run: |
         set -e
@@ -146,11 +151,11 @@ runs:
           echo "❌ Failed to install Knip"
           exit 1
         fi
-        
+
         # Use project's .kniprc.json if it exists, otherwise use default from action
         PROJECT_KNIPRC="${{ github.workspace }}/${{ inputs.dir }}/.kniprc.json"
         DEFAULT_KNIPRC="${{ github.action_path }}/.kniprc.json"
-        
+
         if [ ! -f "$PROJECT_KNIPRC" ]; then
           echo "ℹ️  No project .kniprc.json found, using default configuration..."
           if [ -f "$DEFAULT_KNIPRC" ]; then
@@ -162,13 +167,29 @@ runs:
         else
           echo "ℹ️  Using project's existing .kniprc.json"
         fi
-        
+
         echo "🧹 Running Knip to check for unused dependencies and exports..."
         cd "${{ github.workspace }}/${{ inputs.dir }}"
-        if ! knip --dependencies --exports; then
+        
+        # Run knip and capture exit code (temporarily disable set -e to capture exit code)
+        set +e
+        knip --dependencies --exports
+        KNIP_EXIT_CODE=$?
+        set -e
+        
+        if [ $KNIP_EXIT_CODE -ne 0 ]; then
+          echo ""
           echo "⚠️  Knip found unused dependencies or exports"
           echo "ℹ️  Review the output above to clean up your project"
-          exit 1
+          
+          # If dep_scan is 'warn', don't fail the workflow
+          if [ "${{ inputs.dep_scan }}" = "warn" ]; then
+            echo "⚠️  Running in warn mode - workflow will continue"
+            exit 0
+          else
+            # dep_scan is 'true' - fail the workflow
+            exit $KNIP_EXIT_CODE
+          fi
         fi
         echo "✅ Knip analysis complete - no unused dependencies or exports found"
 
