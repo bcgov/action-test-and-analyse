@@ -46,9 +46,9 @@ inputs:
     pattern: "^(true|false)$"
 
   dep_scan:
-    description: 'Enable dependency and export analysis using Knip for JS/TS projects. Options: off (skip), warn (run but don''t fail), error (run and fail on issues)'
+    description: "Enable dependency and export analysis using Knip for JS/TS projects. Options: off (skip), warn (run but don't fail), error (run and fail on issues)"
     required: false
-    default: 'warn'
+    default: "warn"
     pattern: "^(off|warn|error)$"
 
   ### Usually a bad idea / not recommended
@@ -166,13 +166,13 @@ runs:
 
         echo "🧹 Running Knip to check for unused dependencies and exports..."
         cd "${{ github.workspace }}/${{ inputs.dir }}"
-        
+
         # Run knip and capture exit code (temporarily disable set -e to capture exit code)
         set +e
         knip --dependencies --exports
         KNIP_EXIT_CODE=$?
         set -e
-        
+
         if [ $KNIP_EXIT_CODE -ne 0 ]; then
           echo ""
           echo "⚠️  Knip found unused dependencies or exports"
