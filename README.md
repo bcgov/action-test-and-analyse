@@ -326,11 +326,11 @@ The default configuration excludes the following packages that are commonly flag
 
 - **`@types/react`** and **`@types/react-dom`** - TypeScript type definitions for React. Similar to `@types/node`, these are used by the TypeScript compiler but may not appear as direct imports in your codebase.
 
-If you encounter other packages that are legitimately used but flagged by Knip, you can add them to your own `.knip.json` configuration file (see Custom Configuration below).
-
 ## Custom Configuration
 
 You can override the default configuration by creating your own `.knip.json` file in your project's root directory (or in the directory specified by the `dir` parameter). The action will detect and use your project's configuration file instead of the default.
+
+Your contributions are greatly appreciated, so please send up your suggestions by writing an issue or sending a PR!
 
 ### Common Exclusion Options
 
