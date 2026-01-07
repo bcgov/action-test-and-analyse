@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@v6
       # Remove --no-config-hints for testing so we can verify configuration hints work
       - name: Enable config hints for testing
-        if: matrix.dep_scan != 'off'
+        if: matrix.dep_scan != 'off' && matrix.dep_scan != 'false'
         run: |
           sed -i 's/--no-config-hints//g' action.yml
       - id: action
