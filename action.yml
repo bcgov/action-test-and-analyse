@@ -170,12 +170,15 @@ runs:
           fi
         fi
         
+        USING_DEFAULT_CONFIG=false
+        
         if [ -z "$KNIP_CONFIG_ARG" ]; then
           # Default behavior: Use project's .knip.json if it exists, otherwise use default from action
           PROJECT_KNIP=".knip.json"
           
           if [ ! -f "$PROJECT_KNIP" ]; then
             echo "ℹ️ No project .knip.json found, using default configuration..."
+            USING_DEFAULT_CONFIG=true
             
             # Try multiple paths to find the default config
             DEFAULT_KNIP=""
@@ -200,9 +203,16 @@ runs:
           fi
         fi
         
+        # Suppress configuration hints when using default config (hints are about our upstream config, not user's project)
+        # Note: Test workflow uses sed to remove this flag to verify hints work
+        KNIP_HINTS_ARG=""
+        if [ "$USING_DEFAULT_CONFIG" = "true" ]; then
+          KNIP_HINTS_ARG="--no-config-hints"
+        fi
+        
         # Run knip and capture exit code (temporarily disable set -e to capture exit code)
         set +e
-        knip --dependencies --exports $KNIP_CONFIG_ARG
+        knip --dependencies --exports $KNIP_CONFIG_ARG $KNIP_HINTS_ARG
         KNIP_EXIT_CODE=$?
         set -e
 
