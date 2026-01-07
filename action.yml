@@ -161,13 +161,30 @@ runs:
         KNIP_CONFIG_ARG=""
         
         if [ -n "${{ inputs.knip_config }}" ]; then
-          # User provided a custom config path
+          # User provided a custom config path - validate it exists
           CUSTOM_CONFIG="${{ github.workspace }}/${{ inputs.knip_config }}"
+          
+          # Additional security: ensure path doesn't contain directory traversal
+          if echo "${{ inputs.knip_config }}" | grep -q '\.\.'; then
+            echo "❌ Invalid knip_config path: directory traversal (..) not allowed"
+            exit 1
+          fi
+          
+          # Ensure resolved path is within workspace
+          CUSTOM_CONFIG_ABS=$(realpath "$CUSTOM_CONFIG" 2>/dev/null || echo "$CUSTOM_CONFIG")
+          WORKSPACE_ABS=$(realpath "${{ github.workspace }}" 2>/dev/null || echo "${{ github.workspace }}")
+          if [ -z "$CUSTOM_CONFIG_ABS" ] || [ "${CUSTOM_CONFIG_ABS#$WORKSPACE_ABS}" = "$CUSTOM_CONFIG_ABS" ]; then
+            echo "❌ Invalid knip_config path: must be within workspace"
+            exit 1
+          fi
+          
           if [ -f "$CUSTOM_CONFIG" ]; then
             KNIP_CONFIG_ARG="--config $CUSTOM_CONFIG"
             echo "✅ Using custom Knip config from ${{ inputs.knip_config }}"
           else
-            echo "⚠️  Custom Knip config not found at $CUSTOM_CONFIG, using default behavior"
+            echo "❌ Custom Knip config not found at $CUSTOM_CONFIG"
+            echo "   Please verify the 'knip_config' input path and ensure the file exists."
+            exit 1
           fi
         fi
         
@@ -189,14 +206,11 @@ runs:
             USING_DEFAULT_CONFIG=true
             PROJECT_KNIP=".knip.json"
             
-            # Try multiple paths to find the default config
+            # Try to find the default config from the action
             DEFAULT_KNIP=""
-            for path in "${{ github.action_path }}/.knip.json" "${{ github.workspace }}/.knip.json"; do
-              if [ -f "$path" ]; then
-                DEFAULT_KNIP="$path"
-                break
-              fi
-            done
+            if [ -f "${{ github.action_path }}/.knip.json" ]; then
+              DEFAULT_KNIP="${{ github.action_path }}/.knip.json"
+            fi
             
             # If file not found, create default config inline
             if [ -z "$DEFAULT_KNIP" ] || [ ! -f "$DEFAULT_KNIP" ]; then
@@ -231,15 +245,7 @@ runs:
           echo "ℹ️  Review the output above to clean up your project"
           
           # If dep_scan is 'warn', don't fail the workflow
-          # Normalize aliases: 'false' -> 'off', 'true' -> 'error'
-          DEP_SCAN_VALUE="${{ inputs.dep_scan }}"
-          if [ "$DEP_SCAN_VALUE" = "false" ]; then
-            DEP_SCAN_VALUE="off"
-          elif [ "$DEP_SCAN_VALUE" = "true" ]; then
-            DEP_SCAN_VALUE="error"
-          fi
-          
-          if [ "$DEP_SCAN_VALUE" = "warn" ]; then
+          if [ "${{ inputs.dep_scan }}" = "warn" ]; then
             echo "⚠️  Running in warn mode - workflow will continue"
             exit 0
           else

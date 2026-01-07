@@ -286,7 +286,7 @@ The `dep_scan` parameter supports three modes:
       npm run test:cov
     dir: frontend
     node_version: "20"
-    dep_scan: warn  # or omit to use default
+    dep_scan: warn
 ```
 
 ### Example: Error Mode (Enforce Cleanup)
@@ -330,7 +330,7 @@ The default configuration excludes the following packages that are commonly flag
 
 You can override the default configuration in two ways:
 
-1. **Create your own `.knip.json`** in your project's root directory (or in the directory specified by the `dir` parameter). The action will automatically detect and use your project's configuration file instead of the default.
+1. **Create your own Knip configuration file** (for example: `.knip.json`, `knip.json`, `.knip.jsonc`, `knip.jsonc`, `knip.ts`, `knip.js`, `knip.config.ts`, or `knip.config.js`) in your project's root directory (or in the directory specified by the `dir` parameter). The action will automatically detect and use any standard Knip configuration file instead of the default.
 
 2. **Specify a custom config path** using the `knip_config` parameter:
    ```yaml
