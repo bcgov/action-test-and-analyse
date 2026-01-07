@@ -150,15 +150,27 @@ runs:
 
         # Use project's .kniprc.json if it exists, otherwise use default from action
         PROJECT_KNIPRC="${{ github.workspace }}/${{ inputs.dir }}/.kniprc.json"
-        DEFAULT_KNIPRC="${{ github.action_path }}/.kniprc.json"
 
         if [ ! -f "$PROJECT_KNIPRC" ]; then
           echo "ℹ️  No project .kniprc.json found, using default configuration..."
-          if [ -f "$DEFAULT_KNIPRC" ]; then
-            cp "$DEFAULT_KNIPRC" "$PROJECT_KNIPRC"
+          
+          # Try multiple paths to find the default config
+          DEFAULT_KNIPRC=""
+          for path in "${{ github.action_path }}/.kniprc.json" "${{ github.workspace }}/.kniprc.json" ".kniprc.json"; do
+            if [ -f "$path" ]; then
+              DEFAULT_KNIPRC="$path"
+              break
+            fi
+          done
+          
+          # If file not found, create default config inline
+          if [ -z "$DEFAULT_KNIPRC" ] || [ ! -f "$DEFAULT_KNIPRC" ]; then
+            echo "📝 Creating default .kniprc.json with common exceptions..."
+            printf '{\n  "ignoreDependencies": [\n    "swagger-ui-express",\n    "rimraf",\n    "@types/node",\n    "@types/react",\n    "@types/react-dom"\n  ],\n  "ignoreBinaries": [\n    "rimraf"\n  ]\n}' > "$PROJECT_KNIPRC"
             echo "✅ Applied default .kniprc.json with common exceptions"
           else
-            echo "⚠️  Default .kniprc.json not found in action, proceeding without config"
+            cp "$DEFAULT_KNIPRC" "$PROJECT_KNIPRC"
+            echo "✅ Applied default .kniprc.json with common exceptions"
           fi
         else
           echo "ℹ️  Using project's existing .kniprc.json"
