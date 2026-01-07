@@ -51,6 +51,11 @@ inputs:
     default: "warn"
     pattern: "^(off|warn|error)$"
 
+  knip_config:
+    description: "Path to custom Knip configuration file (relative to workspace root). If not provided, uses default behavior (checks for .knip.json in project dir, falls back to action's default)"
+    required: false
+    default: ""
+
   ### Usually a bad idea / not recommended
   diff_branch:
     description: Branch to diff against
@@ -148,40 +153,56 @@ runs:
           exit 1
         fi
 
-        # Use project's .knip.json if it exists, otherwise use default from action
-        PROJECT_KNIP="${{ github.workspace }}/${{ inputs.dir }}/.knip.json"
-
-        if [ ! -f "$PROJECT_KNIP" ]; then
-          echo "ℹ️ No project .knip.json found, using default configuration..."
-          
-          # Try multiple paths to find the default config
-          DEFAULT_KNIP=""
-          for path in "${{ github.action_path }}/.knip.json" "${{ github.workspace }}/.knip.json" ".knip.json"; do
-            if [ -f "$path" ]; then
-              DEFAULT_KNIP="$path"
-              break
-            fi
-          done
-          
-          # If file not found, create default config inline
-          if [ -z "$DEFAULT_KNIP" ] || [ ! -f "$DEFAULT_KNIP" ]; then
-            echo "📝 Creating default .knip.json with common exceptions..."
-            printf '{\n  "ignoreDependencies": [\n    "swagger-ui-express",\n    "rimraf",\n    "@types/node",\n    "@types/react",\n    "@types/react-dom"\n  ],\n  "ignoreBinaries": [\n    "rimraf"\n  ]\n}' > "$PROJECT_KNIP"
-            echo "✅ Applied default .knip.json with common exceptions"
-          else
-            cp "$DEFAULT_KNIP" "$PROJECT_KNIP"
-            echo "✅ Applied default .knip.json with common exceptions"
-          fi
-        else
-          echo "ℹ️  Using project's existing .knip.json"
-        fi
-
         echo "🧹 Running Knip to check for unused dependencies and exports..."
         cd "${{ github.workspace }}/${{ inputs.dir }}"
-
+        
+        # Handle Knip configuration
+        KNIP_CONFIG_ARG=""
+        
+        if [ -n "${{ inputs.knip_config }}" ]; then
+          # User provided a custom config path
+          CUSTOM_CONFIG="${{ github.workspace }}/${{ inputs.knip_config }}"
+          if [ -f "$CUSTOM_CONFIG" ]; then
+            KNIP_CONFIG_ARG="--config $CUSTOM_CONFIG"
+            echo "✅ Using custom Knip config from ${{ inputs.knip_config }}"
+          else
+            echo "⚠️  Custom Knip config not found at $CUSTOM_CONFIG, using default behavior"
+          fi
+        fi
+        
+        if [ -z "$KNIP_CONFIG_ARG" ]; then
+          # Default behavior: Use project's .knip.json if it exists, otherwise use default from action
+          PROJECT_KNIP=".knip.json"
+          
+          if [ ! -f "$PROJECT_KNIP" ]; then
+            echo "ℹ️ No project .knip.json found, using default configuration..."
+            
+            # Try multiple paths to find the default config
+            DEFAULT_KNIP=""
+            for path in "${{ github.action_path }}/.knip.json" "${{ github.workspace }}/.knip.json"; do
+              if [ -f "$path" ]; then
+                DEFAULT_KNIP="$path"
+                break
+              fi
+            done
+            
+            # If file not found, create default config inline
+            if [ -z "$DEFAULT_KNIP" ] || [ ! -f "$DEFAULT_KNIP" ]; then
+              echo "📝 Creating default .knip.json with common exceptions..."
+              printf '{\n  "ignoreDependencies": [\n    "swagger-ui-express",\n    "rimraf",\n    "@types/node",\n    "@types/react",\n    "@types/react-dom"\n  ],\n  "ignoreBinaries": [\n    "rimraf"\n  ]\n}' > "$PROJECT_KNIP"
+              echo "✅ Applied default .knip.json with common exceptions"
+            else
+              cp "$DEFAULT_KNIP" "$PROJECT_KNIP"
+              echo "✅ Applied default .knip.json with common exceptions"
+            fi
+          else
+            echo "ℹ️  Using project's existing .knip.json"
+          fi
+        fi
+        
         # Run knip and capture exit code (temporarily disable set -e to capture exit code)
         set +e
-        knip --dependencies --exports
+        knip --dependencies --exports $KNIP_CONFIG_ARG
         KNIP_EXIT_CODE=$?
         set -e
 

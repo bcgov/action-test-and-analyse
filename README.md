@@ -328,7 +328,17 @@ The default configuration excludes the following packages that are commonly flag
 
 ## Custom Configuration
 
-You can override the default configuration by creating your own `.knip.json` file in your project's root directory (or in the directory specified by the `dir` parameter). The action will detect and use your project's configuration file instead of the default.
+You can override the default configuration in two ways:
+
+1. **Create your own `.knip.json`** in your project's root directory (or in the directory specified by the `dir` parameter). The action will automatically detect and use your project's configuration file instead of the default.
+
+2. **Specify a custom config path** using the `knip_config` parameter:
+   ```yaml
+   - uses: bcgov/action-test-and-analyse@x.y.z
+     with:
+       dep_scan: error
+       knip_config: "configs/custom.knip.json"  # Relative to workspace root
+   ```
 
 Even better, tell us when you encounter false positives!  Your contributions are greatly appreciated, so please send suggestions by writing an issue or sending a PR.
 
