@@ -43,6 +43,13 @@ jobs:
             dep_scan: off
     steps:
       - uses: actions/checkout@v6
+      # Read Node.js version from package.json
+      - name: Get Node.js version from package.json
+        id: node-version
+        run: |
+          NODE_VERSION=$(jq -r '.engines.node' package.json | sed 's/>=//' | cut -d. -f1)
+          echo "node_version=$NODE_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Using Node.js version $NODE_VERSION from package.json"
       # Remove --no-config-hints for testing so we can verify configuration hints work
       - name: Enable config hints for testing
         if: matrix.dep_scan != 'off' && matrix.dep_scan != 'false'
@@ -55,7 +62,7 @@ jobs:
             npm ci
             npm run test:cov
           dir: ${{ matrix.dir }}
-          node_version: "20"
+          node_version: ${{ steps.node-version.outputs.node_version }}
           repository: bcgov/quickstart-openshift
           sonar_args: >
             -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
