@@ -213,7 +213,20 @@ runs:
             # If file not found, create default config inline
             if [ -z "$DEFAULT_KNIP" ] || [ ! -f "$DEFAULT_KNIP" ]; then
               echo "📝 Creating default .knip.json with common exceptions..."
-              printf '{\n  "ignoreDependencies": [\n    "swagger-ui-express",\n    "rimraf",\n    "@types/node",\n    "@types/react",\n    "@types/react-dom"\n  ],\n  "ignoreBinaries": [\n    "rimraf"\n  ]\n}' > "$PROJECT_KNIP"
+              # Use multiline string for better readability and maintainability
+              DEFAULT_KNIP_JSON='{
+  "ignoreDependencies": [
+    "swagger-ui-express",
+    "rimraf",
+    "@types/node",
+    "@types/react",
+    "@types/react-dom"
+  ],
+  "ignoreBinaries": [
+    "rimraf"
+  ]
+}'
+              echo "$DEFAULT_KNIP_JSON" > "$PROJECT_KNIP"
               echo "✅ Applied default .knip.json with common exceptions"
             else
               cp "$DEFAULT_KNIP" "$PROJECT_KNIP"
