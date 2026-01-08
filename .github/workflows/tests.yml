@@ -29,20 +29,25 @@ jobs:
             triggers: ('backend/')
             expected_triggered: false
             supply_scan: false
-            dep_scan: true
+            dep_scan: error
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
             expected_triggered: true
             # supply_scan: false - purposefully commented out to verify defaults
-            dep_scan: true
+            dep_scan: warn
           - name: frontend-pr
             dir: frontend
             expected_triggered: true
             supply_scan: true
-            dep_scan: false
+            dep_scan: off
     steps:
       - uses: actions/checkout@v6
+      # Remove --no-config-hints for testing so we can verify configuration hints work
+      - name: Enable config hints for testing
+        if: matrix.dep_scan != 'off' && matrix.dep_scan != 'false'
+        run: |
+          sed -i '/KNIP_HINTS_ARG.*--no-config-hints/s/--no-config-hints//g' action.yml
       - id: action
         uses: ./
         with:
