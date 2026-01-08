@@ -51,7 +51,7 @@ inputs:
     pattern: "^(off|false|warn|error|true)$"
 
   knip_config:
-    description: "Path to custom Knip configuration file (relative to workspace root). If not provided, uses default behavior (checks for .knip.json in project dir, falls back to action's default)"
+    description: "Path to custom Knip configuration file (relative to workspace root). If not provided, uses action's default configuration"
     default: ""
     pattern: "^(?!.*\\.\\.)[a-zA-Z0-9._/-]*$"
 
@@ -189,51 +189,38 @@ runs:
         USING_DEFAULT_CONFIG=false
 
         if [ -z "$KNIP_CONFIG_ARG" ]; then
-          # Default behavior: Use project's Knip config if it exists, otherwise use default from action
-          # Check for all standard Knip configuration file formats
-          PROJECT_KNIP=""
-          for config_file in ".knip.json" "knip.json" ".knip.jsonc" "knip.jsonc" "knip.ts" "knip.js" "knip.config.ts" "knip.config.js"; do
-            if [ -f "$config_file" ]; then
-              PROJECT_KNIP="$config_file"
-              break
-            fi
-          done
+          # No custom config provided - use action's default
+          echo "ℹ️ Using action's default Knip configuration..."
+          USING_DEFAULT_CONFIG=true
+          PROJECT_KNIP=".knip.json"
           
-          if [ -z "$PROJECT_KNIP" ]; then
-            echo "ℹ️ No project Knip config found, using default configuration..."
-            USING_DEFAULT_CONFIG=true
-            PROJECT_KNIP=".knip.json"
-            
-            # Try to find the default config from the action
-            DEFAULT_KNIP=""
-            if [ -f "${{ github.action_path }}/.knip.json" ]; then
-              DEFAULT_KNIP="${{ github.action_path }}/.knip.json"
-            fi
-            
-            # If file not found, create default config inline
-            if [ -z "$DEFAULT_KNIP" ] || [ ! -f "$DEFAULT_KNIP" ]; then
-              echo "📝 Creating default .knip.json with common exceptions..."
-              # Use multiline string for better readability and maintainability
-              DEFAULT_KNIP_JSON='{
-                "ignoreDependencies": [
-                  "swagger-ui-express",
-                  "rimraf",
-                  "@types/node",
-                  "@types/react",
-                  "@types/react-dom"
-                ],
-                "ignoreBinaries": [
-                  "rimraf"
-                ]
-              }'
-              echo "$DEFAULT_KNIP_JSON" > "$PROJECT_KNIP"
-              echo "✅ Applied default .knip.json with common exceptions"
-            else
-              cp "$DEFAULT_KNIP" "$PROJECT_KNIP"
-              echo "✅ Applied default .knip.json with common exceptions"
-            fi
+          # Try to find the default config from the action
+          DEFAULT_KNIP=""
+          if [ -f "${{ github.action_path }}/.knip.json" ]; then
+            DEFAULT_KNIP="${{ github.action_path }}/.knip.json"
+          fi
+          
+          # If file not found, create default config inline
+          if [ -z "$DEFAULT_KNIP" ] || [ ! -f "$DEFAULT_KNIP" ]; then
+            echo "📝 Creating default .knip.json with common exceptions..."
+            # Use multiline string for better readability and maintainability
+            DEFAULT_KNIP_JSON='{
+              "ignoreDependencies": [
+                "swagger-ui-express",
+                "rimraf",
+                "@types/node",
+                "@types/react",
+                "@types/react-dom"
+              ],
+              "ignoreBinaries": [
+                "rimraf"
+              ]
+            }'
+            echo "$DEFAULT_KNIP_JSON" > "$PROJECT_KNIP"
+            echo "✅ Applied default .knip.json with common exceptions"
           else
-            echo "ℹ️  Using project's existing Knip config: $PROJECT_KNIP"
+            cp "$DEFAULT_KNIP" "$PROJECT_KNIP"
+            echo "✅ Applied default .knip.json with common exceptions"
           fi
         fi
 
