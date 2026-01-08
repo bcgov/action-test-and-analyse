@@ -1,0 +1,14 @@
+{
+  "name": "action-test-and-analyse",
+  "version": "1.0.0",
+  "description": "GitHub Actions composite action for running tests and code analysis with SonarCloud integration",
+  "private": true,
+  "dependencies": {
+    "knip": "^5.80.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bcgov/action-test-and-analyse.git"
+  },
+  "license": "MIT"
+}

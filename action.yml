@@ -136,19 +136,27 @@ runs:
       run: ${{ inputs.commands }}
 
     # Setup Knip for dependency and export analysis (opt-in)
+    - name: Install Knip dependencies
+      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan == 'true'
+      shell: bash
+      run: |
+        set -e
+        echo "🔍 Installing Knip for dependency and export analysis..."
+        cd ${{ github.action_path }}
+        if ! npm ci; then
+          echo "❌ Failed to install Knip dependencies"
+          exit 1
+        fi
+        echo "✅ Knip dependencies installed"
+
     - name: Run Knip for dependency and export analysis
       if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan == 'true'
       shell: bash
       working-directory: ${{ inputs.dir }}
       run: |
         set -e
-        echo "🔍 Installing Knip for dependency and export analysis..."
-        if ! npm install -g knip; then
-          echo "❌ Failed to install Knip"
-          exit 1
-        fi
         echo "🧹 Running Knip to check for unused dependencies and exports..."
-        if ! knip --dependencies --exports; then
+        if ! npx --prefix ${{ github.action_path }} knip --dependencies --exports; then
           echo "⚠️  Knip found unused dependencies or exports"
           echo "ℹ️  Review the output above to clean up your project"
           exit 1
