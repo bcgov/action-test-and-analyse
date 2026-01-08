@@ -142,7 +142,7 @@ runs:
 
     # Setup Knip for dependency and export analysis (opt-in)
     - name: Install Knip dependencies
-      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan == 'true'
+      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off' && inputs.dep_scan != 'false'
       shell: bash
       run: |
         set -e
@@ -159,12 +159,6 @@ runs:
       shell: bash
       run: |
         set -e
-        echo "🔍 Installing Knip for dependency and export analysis..."
-        if ! npm install -g knip; then
-          echo "❌ Failed to install Knip"
-          exit 1
-        fi
-
         echo "🧹 Running Knip to check for unused dependencies and exports..."
         cd "${{ github.workspace }}/${{ inputs.dir }}" || { echo "❌ Failed to change directory to '${{ github.workspace }}/${{ inputs.dir }}'. Please verify the 'dir' input."; exit 1; }
 
@@ -245,7 +239,7 @@ runs:
 
         # Run knip and capture exit code (temporarily disable set -e to capture exit code)
         set +e
-        knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"}
+        npx --prefix ${{ github.action_path }} knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"}
         KNIP_EXIT_CODE=$?
         set -e
 
