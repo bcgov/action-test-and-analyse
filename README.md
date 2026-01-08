@@ -68,10 +68,10 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     supply_scan: false
 
     # Enable dependency and export analysis using Knip
-    # Optional, defaults to false (opt-in only)
-    # NOTE: This will default to true in a future major release
+    # Optional, defaults to warn (runs but doesn't fail)
+    # Options: off (skip), warn (run but don't fail), error (run and fail on issues)
     # Analyzes JS/TS projects for unused dependencies and exports
-    dep_scan: false
+    dep_scan: warn
 
     ### Usually a bad idea / not recommended
 
@@ -137,7 +137,7 @@ jobs:
             -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
           sonar_token: ${{ secrets.SONAR_TOKEN }}
           supply_scan: true
-          dep_scan: true
+          dep_scan: error
           triggers: ('frontend/' 'charts/frontend')
 ```
 
@@ -264,13 +264,19 @@ No additional configuration or API tokens are required. The scanning happens aut
 
 # Knip - Dependency and Export Analysis
 
-This action supports optional dependency and export analysis using [Knip](https://knip.dev/). When enabled, Knip scans JavaScript/TypeScript projects to identify unused dependencies, devDependencies, and exports, helping keep your codebase clean and maintainable.
+This action supports dependency and export analysis using [Knip](https://knip.dev/). When enabled, Knip scans JavaScript/TypeScript projects to identify unused dependencies, devDependencies, and exports, helping keep your codebase clean and maintainable.
 
-**This feature is opt-in only** (default: `false`) to maintain minimal scope and avoid unexpected behavior.
+**Default behavior**: Runs in `warn` mode (shows issues without failing) to encourage adoption without blocking builds. You can disable with `dep_scan: off` (or `dep_scan: false`) or enforce with `dep_scan: error` (or `dep_scan: true`).
 
-## How to Enable
+## How to Use
 
-Set `dep_scan: true` in your workflow:
+The `dep_scan` parameter supports three modes:
+
+- **`off` or `false`** - Skip Knip analysis entirely
+- **`warn`** - Run Knip and show issues, but don't fail the workflow (default)
+- **`error` or `true`** - Run Knip and fail the workflow if issues are found
+
+### Example: Warn Mode (Default)
 
 ```yaml
 - uses: bcgov/action-test-and-analyse@x.y.z
@@ -280,15 +286,96 @@ Set `dep_scan: true` in your workflow:
       npm run test:cov
     dir: frontend
     node_version: "20"
-    dep_scan: true
+    dep_scan: warn
+```
+
+### Example: Error Mode (Enforce Cleanup)
+
+```yaml
+- uses: bcgov/action-test-and-analyse@x.y.z
+  with:
+    commands: |
+      npm ci
+      npm run test:cov
+    dir: frontend
+    node_version: "20"
+    dep_scan: error
 ```
 
 When enabled, Knip will:
 - Analyze your project for unused dependencies and devDependencies
 - Detect unused exports that can be removed
-- Fail the workflow if unused dependencies or exports are found, encouraging cleanup
+- In `error` mode: Fail the workflow if unused dependencies or exports are found, encouraging cleanup
+- In `warn` mode: Show issues without failing, allowing teams to see problems without blocking builds
 
 This helps maintain a lean dependency footprint and reduces security surface area by removing unnecessary packages.
+
+## Default Configuration
+
+The action provides a default `.knip.json` configuration with common exceptions to reduce false positives. When no `knip_config` is provided, this default configuration is written to `.knip.json` in the project directory and will overwrite any existing `.knip.json`.
+
+### Why These Packages Are Excluded
+
+The default configuration excludes the following packages that are commonly flagged as unused but are actually needed:
+
+- **`swagger-ui-express`** - Peer dependency for NestJS's `SwaggerModule.setup()`. NestJS dynamically requires this package at runtime, so Knip doesn't detect it as used. This is a common pattern with peer dependencies that are loaded dynamically.
+
+- **`rimraf`** - Build tool commonly used in npm scripts (e.g., `"clean": "rimraf dist"`). Knip may flag it as unused because it's referenced in `package.json` scripts rather than imported in code. It's also listed in `ignoreBinaries` since it's used as a command-line tool.
+
+- **`@types/node`** - TypeScript type definitions for Node.js. These are used by the TypeScript compiler for type checking but aren't directly imported in source code, so Knip may flag them as unused.
+
+- **`@types/react`** and **`@types/react-dom`** - TypeScript type definitions for React. Similar to `@types/node`, these are used by the TypeScript compiler but may not appear as direct imports in your codebase.
+
+## Custom Configuration
+
+When `knip_config` is not provided, the action uses its default configuration. If you need a custom configuration, specify it using the `knip_config` parameter:
+
+```yaml
+- uses: bcgov/action-test-and-analyse@x.y.z
+  with:
+    dep_scan: error
+    knip_config: "configs/custom.knip.json"  # Path is relative to the GitHub workspace root, not to the `dir` input
+```
+
+**Note:** The `knip_config` path is resolved relative to the GitHub workspace root (`github.workspace`), not relative to the `dir` input parameter. If you do not provide `knip_config`, the action will use its default configuration.
+
+Even better, tell us when you encounter false positives!  Your contributions are greatly appreciated, so please send suggestions by writing an issue or sending a PR.
+
+### Common Exclusion Options
+
+Knip provides several ways to exclude packages and files from analysis:
+
+- **`ignoreDependencies`** - Exclude specific packages from dependency analysis (supports regular expressions)
+  ```json
+  {
+    "ignoreDependencies": ["hidden-package", "@org/.+"]
+  }
+  ```
+
+- **`ignoreBinaries`** - Exclude binaries that aren't provided by dependencies
+  ```json
+  {
+    "ignoreBinaries": ["zip", "docker-compose"]
+  }
+  ```
+
+- **`ignore`** - Suppress all issue types for matching files/patterns
+  ```json
+  {
+    "ignore": ["**/*.d.ts", "**/fixtures"]
+  }
+  ```
+
+- **`ignoreWorkspaces`** - Exclude workspaces in monorepos
+  ```json
+  {
+    "ignoreWorkspaces": ["packages/go-server"]
+  }
+  ```
+
+- **`ignoreExports`** - Ignore specific exports from analysis
+
+For complete configuration options, see the [Knip documentation](https://knip.dev/reference/configuration).
 
 ## Requirements
 
@@ -296,7 +383,7 @@ This helps maintain a lean dependency footprint and reduces security surface are
 - Project must have a `package.json` file
 - Works best with projects that have clear entry points defined in configuration
 
-Knip supports many JavaScript/TypeScript tools and frameworks out of the box. For advanced configuration, you can add a `knip.json` or `knip.ts` configuration file to your project root. See [Knip documentation](https://knip.dev/) for configuration options.
+Knip supports many JavaScript/TypeScript tools and frameworks out of the box. For advanced configuration beyond exclusions, you can also use `knip.json` or `knip.ts` configuration files. See [Knip documentation](https://knip.dev/) for all available options.
 
 # Feedback
 
