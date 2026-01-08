@@ -162,16 +162,14 @@ runs:
           # User provided a custom config path - validate it exists
           CUSTOM_CONFIG="${{ github.workspace }}/${{ inputs.knip_config }}"
           
-          # Additional security: ensure path doesn't contain directory traversal
-          if echo "${{ inputs.knip_config }}" | grep -q '\.\.'; then
-            echo "❌ Invalid knip_config path: directory traversal (..) not allowed"
+          # Ensure resolved path is within workspace
+          CUSTOM_CONFIG_ABS=$(realpath "$CUSTOM_CONFIG" 2>/dev/null || echo "")
+          WORKSPACE_ABS=$(realpath "${{ github.workspace }}" 2>/dev/null || echo "")
+          if [ -z "$CUSTOM_CONFIG_ABS" ] || [ -z "$WORKSPACE_ABS" ]; then
+            echo "❌ Invalid knip_config path: unable to resolve absolute path"
             exit 1
           fi
-          
-          # Ensure resolved path is within workspace
-          CUSTOM_CONFIG_ABS=$(realpath "$CUSTOM_CONFIG" 2>/dev/null || echo "$CUSTOM_CONFIG")
-          WORKSPACE_ABS=$(realpath "${{ github.workspace }}" 2>/dev/null || echo "${{ github.workspace }}")
-          if [ -z "$CUSTOM_CONFIG_ABS" ] || [ "${CUSTOM_CONFIG_ABS#$WORKSPACE_ABS}" = "$CUSTOM_CONFIG_ABS" ]; then
+          if [ "${CUSTOM_CONFIG_ABS#$WORKSPACE_ABS}" = "$CUSTOM_CONFIG_ABS" ]; then
             echo "❌ Invalid knip_config path: must be within workspace"
             exit 1
           fi
@@ -190,6 +188,7 @@ runs:
 
         if [ -z "$KNIP_CONFIG_ARG" ]; then
           # No custom config provided - use action's default
+          # Note: This will overwrite any existing .knip.json in the project directory
           echo "ℹ️ Using action's default Knip configuration..."
           USING_DEFAULT_CONFIG=true
           PROJECT_KNIP=".knip.json"
@@ -233,7 +232,7 @@ runs:
 
         # Run knip and capture exit code (temporarily disable set -e to capture exit code)
         set +e
-        knip --dependencies --exports $KNIP_CONFIG_ARG $KNIP_HINTS_ARG
+        knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"}
         KNIP_EXIT_CODE=$?
         set -e
 

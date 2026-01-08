@@ -328,17 +328,16 @@ The default configuration excludes the following packages that are commonly flag
 
 ## Custom Configuration
 
-You can override the default configuration in two ways:
+When `knip_config` is not provided, the action uses its default configuration. If you need a custom configuration, specify it using the `knip_config` parameter:
 
-1. **Create your own Knip configuration file** (for example: `.knip.json`, `knip.json`, `.knip.jsonc`, `knip.jsonc`, `knip.ts`, `knip.js`, `knip.config.ts`, or `knip.config.js`) in your project's root directory (or in the directory specified by the `dir` parameter). The action will automatically detect and use any standard Knip configuration file instead of the default.
+```yaml
+- uses: bcgov/action-test-and-analyse@x.y.z
+  with:
+    dep_scan: error
+    knip_config: "configs/custom.knip.json"  # Path is relative to the GitHub workspace root, not to the `dir` input
+```
 
-2. **Specify a custom config path** using the `knip_config` parameter:
-   ```yaml
-   - uses: bcgov/action-test-and-analyse@x.y.z
-     with:
-       dep_scan: error
-       knip_config: "configs/custom.knip.json"  # Relative to workspace root
-   ```
+**Note:** The `knip_config` path is resolved relative to the GitHub workspace root (`github.workspace`), not relative to the `dir` input parameter. If you don't provide `knip_config`, the action will use its default configuration and create/overwrite a `.knip.json` file in your project directory.
 
 Even better, tell us when you encounter false positives!  Your contributions are greatly appreciated, so please send suggestions by writing an issue or sending a PR.
 
