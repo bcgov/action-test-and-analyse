@@ -175,7 +175,7 @@ runs:
           fi
           
           if [ -f "$CUSTOM_CONFIG" ]; then
-            KNIP_CONFIG_ARG="--config $CUSTOM_CONFIG"
+            KNIP_CONFIG_ARG="--config=$CUSTOM_CONFIG"
             echo "✅ Using custom Knip config from ${{ inputs.knip_config }}"
           else
             echo "❌ Custom Knip config not found at $CUSTOM_CONFIG"

@@ -337,7 +337,9 @@ When `knip_config` is not provided, the action uses its default configuration. I
     knip_config: "configs/custom.knip.json"  # Path is relative to the GitHub workspace root, not to the `dir` input
 ```
 
-**Note:** The `knip_config` path is resolved relative to the GitHub workspace root (`github.workspace`), not relative to the `dir` input parameter. If you don't provide `knip_config`, the action will use its default configuration and create/overwrite a `.knip.json` file in your project directory.
+**Note:** The `knip_config` path is resolved relative to the GitHub workspace root (`github.workspace`), not relative to the `dir` input parameter.
+
+**⚠️ Warning:** If you do **not** provide `knip_config`, the action will use its default Knip configuration and will create a `.knip.json` file in your project directory. This will **overwrite any existing `.knip.json` without prompting** the first time the action runs. If you already maintain your own Knip configuration, pass its path explicitly via `knip_config` to prevent it from being overwritten.
 
 Even better, tell us when you encounter false positives!  Your contributions are greatly appreciated, so please send suggestions by writing an issue or sending a PR.
 
