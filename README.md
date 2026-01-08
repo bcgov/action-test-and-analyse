@@ -312,7 +312,7 @@ This helps maintain a lean dependency footprint and reduces security surface are
 
 ## Default Configuration
 
-The action provides a default `.knip.json` configuration with common exceptions to reduce false positives. If your project doesn't have its own `.knip.json`, the action will automatically use this default configuration.
+The action provides a default `.knip.json` configuration with common exceptions to reduce false positives. When no `knip_config` is provided, this default configuration is written to `.knip.json` in the project directory and will overwrite any existing `.knip.json`.
 
 ### Why These Packages Are Excluded
 

@@ -153,7 +153,7 @@ runs:
         fi
 
         echo "🧹 Running Knip to check for unused dependencies and exports..."
-        cd "${{ github.workspace }}/${{ inputs.dir }}"
+        cd "${{ github.workspace }}/${{ inputs.dir }}" || { echo "❌ Failed to change directory to '${{ github.workspace }}/${{ inputs.dir }}'. Please verify the 'dir' input."; exit 1; }
 
         # Handle Knip configuration
         KNIP_CONFIG_ARG=""
