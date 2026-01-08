@@ -47,15 +47,13 @@ inputs:
 
   dep_scan:
     description: "Enable dependency and export analysis using Knip for JS/TS projects. Options: off/false (skip), warn (run but don't fail), error/true (run and fail on issues)"
-    required: false
     default: "warn"
     pattern: "^(off|false|warn|error|true)$"
 
   knip_config:
     description: "Path to custom Knip configuration file (relative to workspace root). If not provided, uses default behavior (checks for .knip.json in project dir, falls back to action's default)"
-    required: false
     default: ""
-    pattern: "^[a-zA-Z0-9._/-]*$"
+    pattern: "^(?!.*\\.\\.)[a-zA-Z0-9._/-]*$"
 
   ### Usually a bad idea / not recommended
   diff_branch:
@@ -156,10 +154,10 @@ runs:
 
         echo "🧹 Running Knip to check for unused dependencies and exports..."
         cd "${{ github.workspace }}/${{ inputs.dir }}"
-        
+
         # Handle Knip configuration
         KNIP_CONFIG_ARG=""
-        
+
         if [ -n "${{ inputs.knip_config }}" ]; then
           # User provided a custom config path - validate it exists
           CUSTOM_CONFIG="${{ github.workspace }}/${{ inputs.knip_config }}"
@@ -187,9 +185,9 @@ runs:
             exit 1
           fi
         fi
-        
+
         USING_DEFAULT_CONFIG=false
-        
+
         if [ -z "$KNIP_CONFIG_ARG" ]; then
           # Default behavior: Use project's Knip config if it exists, otherwise use default from action
           # Check for all standard Knip configuration file formats
@@ -225,14 +223,14 @@ runs:
             echo "ℹ️  Using project's existing Knip config: $PROJECT_KNIP"
           fi
         fi
-        
+
         # Suppress configuration hints when using default config (hints are about our upstream config, not user's project)
         # Note: Test workflow uses sed to remove this flag to verify hints work
         KNIP_HINTS_ARG=""
         if [ "$USING_DEFAULT_CONFIG" = "true" ]; then
           KNIP_HINTS_ARG="--no-config-hints"
         fi
-        
+
         # Run knip and capture exit code (temporarily disable set -e to capture exit code)
         set +e
         knip --dependencies --exports $KNIP_CONFIG_ARG $KNIP_HINTS_ARG
