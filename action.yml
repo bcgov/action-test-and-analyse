@@ -215,17 +215,17 @@ runs:
               echo "📝 Creating default .knip.json with common exceptions..."
               # Use multiline string for better readability and maintainability
               DEFAULT_KNIP_JSON='{
-  "ignoreDependencies": [
-    "swagger-ui-express",
-    "rimraf",
-    "@types/node",
-    "@types/react",
-    "@types/react-dom"
-  ],
-  "ignoreBinaries": [
-    "rimraf"
-  ]
-}'
+                "ignoreDependencies": [
+                  "swagger-ui-express",
+                  "rimraf",
+                  "@types/node",
+                  "@types/react",
+                  "@types/react-dom"
+                ],
+                "ignoreBinaries": [
+                  "rimraf"
+                ]
+              }'
               echo "$DEFAULT_KNIP_JSON" > "$PROJECT_KNIP"
               echo "✅ Applied default .knip.json with common exceptions"
             else
