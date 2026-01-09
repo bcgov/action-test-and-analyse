@@ -276,45 +276,16 @@ runs:
         # Strip ANSI color codes and control characters from output
         KNIP_OUTPUT=$(echo "$KNIP_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' | sed 's/[\x00-\x1F\x7F]//g')
 
-        # Write Knip output to step summary
-        echo "## 🔍 Knip Analysis Results" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        if [ $KNIP_EXIT_CODE -ne 0 ]; then
-          echo "### ⚠️ Issues Found" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Knip found unused dependencies or exports that should be reviewed:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "### ✅ No Issues Found" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All dependencies and exports are in use." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-        fi
-
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        echo "$KNIP_OUTPUT" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
         if [ $KNIP_EXIT_CODE -ne 0 ]; then
           echo ""
           echo "⚠️  Knip found unused dependencies or exports"
           echo "ℹ️  Review the output above to clean up your project"
           
-          # Add warning annotation to workflow summary (shows in annotations tab)
-          echo "::warning::Knip found unused dependencies or exports. Review the detailed output in the step summary."
-          
-          
           # If dep_scan is 'warn', don't fail the workflow
           if [ "${{ inputs.dep_scan }}" = "warn" ]; then
             echo "⚠️  Running in warn mode - workflow will continue"
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "> ℹ️ **Warn mode**: Workflow continues despite issues. Consider cleaning up unused dependencies." >> $GITHUB_STEP_SUMMARY
           else
             # dep_scan is 'error' or 'true' - fail the workflow
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "> ❌ **Error mode**: Workflow failed. Please resolve unused dependencies or exports." >> $GITHUB_STEP_SUMMARY
             exit $KNIP_EXIT_CODE
           fi
         else
