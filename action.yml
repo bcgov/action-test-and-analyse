@@ -123,7 +123,7 @@ runs:
       uses: actions/checkout@v6
       with:
         repository: bcgov/action-test-and-analyse
-        ref: main
+        ref: ${{ github.action_sha }}
         path: action-repo
 
     # Install packages globally from package.json
