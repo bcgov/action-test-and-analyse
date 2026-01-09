@@ -105,7 +105,7 @@ runs:
     # Shallow clone is faster, but SonarCloud requires a full clone
     - uses: actions/checkout@v6
       with:
-        fetch-depth: 0
+        fetch-depth: ${{ inputs.sonar_token && '0' || '1' }}
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.branch }}
 
