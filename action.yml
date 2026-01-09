@@ -272,6 +272,9 @@ runs:
         KNIP_OUTPUT=$(knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"} 2>&1)
         KNIP_EXIT_CODE=$?
         set -e
+        
+        # Strip ANSI color codes and control characters from output
+        KNIP_OUTPUT=$(echo "$KNIP_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' | sed 's/[\x00-\x1F\x7F]//g')
 
         # Write Knip output to step summary
         echo "## 🔍 Knip Analysis Results" >> $GITHUB_STEP_SUMMARY
