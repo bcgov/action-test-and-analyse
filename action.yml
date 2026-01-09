@@ -242,28 +242,13 @@ runs:
           USING_DEFAULT_CONFIG=true
           PROJECT_KNIP=".knip.json"
           
-          # Try to find the default config from the action
+          # Copy default config from the action repository
           DEFAULT_KNIP="action-repo/.knip.json"
-          
-          # If file not found, create default config inline
           if [ ! -f "$DEFAULT_KNIP" ]; then
-            # Use multiline string for better readability and maintainability
-            DEFAULT_KNIP_JSON='{
-              "ignoreDependencies": [
-                "swagger-ui-express",
-                "rimraf",
-                "@types/node",
-                "@types/react",
-                "@types/react-dom"
-              ],
-              "ignoreBinaries": [
-                "rimraf"
-              ]
-            }'
-            echo "$DEFAULT_KNIP_JSON" > "$PROJECT_KNIP"
-          else
-            cp "$DEFAULT_KNIP" "$PROJECT_KNIP"
+            echo "❌ Default .knip.json not found in action repository"
+            exit 1
           fi
+          cp "$DEFAULT_KNIP" "$PROJECT_KNIP"
         fi
 
         # Suppress configuration hints when using default config (hints are about our upstream config, not user's project)
