@@ -141,13 +141,34 @@ runs:
       run: ${{ inputs.commands }}
 
     # Setup Knip for dependency and export analysis (opt-in)
+    - name: Checkout action repository for Knip dependencies
+      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off' && inputs.dep_scan != 'false'
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ github.repository }}
+        ref: ${{ github.ref }}
+        path: action-repo
+
     - name: Install Knip dependencies
       if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off' && inputs.dep_scan != 'false'
       shell: bash
       run: |
         set -e
         echo "🔍 Installing Knip for dependency and export analysis..."
-        cd ${{ github.action_path }}
+        cd action-repo
+        
+        # Verify required files exist
+        if [ ! -f "package.json" ]; then
+          echo "❌ package.json not found in action repository"
+          exit 1
+        fi
+        
+        if [ ! -f "package-lock.json" ]; then
+          echo "❌ package-lock.json not found in action repository"
+          echo "package-lock.json must be committed to the action repository for reproducible builds."
+          exit 1
+        fi
+        
         if ! npm ci; then
           echo "❌ Failed to install Knip dependencies"
           exit 1
@@ -202,8 +223,8 @@ runs:
           
           # Try to find the default config from the action
           DEFAULT_KNIP=""
-          if [ -f "${{ github.action_path }}/.knip.json" ]; then
-            DEFAULT_KNIP="${{ github.action_path }}/.knip.json"
+          if [ -f "action-repo/.knip.json" ]; then
+            DEFAULT_KNIP="action-repo/.knip.json"
           fi
           
           # If file not found, create default config inline
@@ -239,7 +260,7 @@ runs:
 
         # Run knip and capture exit code (temporarily disable set -e to capture exit code)
         set +e
-        npx --prefix ${{ github.action_path }} knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"}
+        npx --prefix action-repo knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"}
         KNIP_EXIT_CODE=$?
         set -e
 
