@@ -239,13 +239,10 @@ runs:
           PROJECT_KNIP=".knip.json"
           
           # Try to find the default config from the action
-          DEFAULT_KNIP=""
-          if [ -f "action-repo/.knip.json" ]; then
-            DEFAULT_KNIP="action-repo/.knip.json"
-          fi
+          DEFAULT_KNIP="action-repo/.knip.json"
           
           # If file not found, create default config inline
-          if [ -z "$DEFAULT_KNIP" ] || [ ! -f "$DEFAULT_KNIP" ]; then
+          if [ ! -f "$DEFAULT_KNIP" ]; then
             echo "📝 Creating default .knip.json with common exceptions..."
             # Use multiline string for better readability and maintainability
             DEFAULT_KNIP_JSON='{
@@ -275,14 +272,11 @@ runs:
           KNIP_HINTS_ARG="--no-config-hints"
         fi
 
-        # Run knip and capture output and exit code (temporarily disable set -e to capture exit code)
+        # Run knip and capture exit code (temporarily disable set -e to capture exit code)
         set +e
-        KNIP_OUTPUT=$(knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"} 2>&1)
+        knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"}
         KNIP_EXIT_CODE=$?
         set -e
-
-        # Strip ANSI color codes and control characters from output
-        KNIP_OUTPUT=$(echo "$KNIP_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' | sed 's/[\x00-\x1F\x7F]//g')
 
         if [ $KNIP_EXIT_CODE -ne 0 ]; then
           echo ""
