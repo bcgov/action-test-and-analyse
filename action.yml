@@ -111,18 +111,25 @@ runs:
       run: |
         set -e
         ACTION_REF="${{ github.action_ref }}"
-        
+
+        # Fallback if github.action_ref is empty (e.g., when action is used from same repo)
+        if [ -z "$ACTION_REF" ]; then
+          echo "ℹ️  github.action_ref is empty, falling back to default branch (main)"
+          # When action_ref is empty, we can't determine exact version, so use default branch
+          ACTION_REF="main"
+        fi
+
         # If it's already a full SHA (40 hex chars), use it directly
         if [[ "$ACTION_REF" =~ ^[0-9a-f]{40}$ ]]; then
           echo "sha=$ACTION_REF" >> "$GITHUB_OUTPUT"
           echo "✅ Using provided commit SHA: $ACTION_REF"
           exit 0
         fi
-        
+
         # Query remote repository to resolve ref to SHA
         # This handles tags (including wildcards), branches, and partial SHAs
         echo "🔍 Resolving ref '$ACTION_REF' to commit SHA..."
-        
+
         # Try to resolve as a tag first (handles wildcards like v6*)
         if [[ "$ACTION_REF" == *"*"* ]]; then
           # Wildcard pattern - find latest matching tag
@@ -136,15 +143,15 @@ runs:
             exit 1
           fi
         fi
-        
+
         # Resolve ref to commit SHA
         SHA=$(git ls-remote "https://github.com/bcgov/action-test-and-analyse.git" "$ACTION_REF" | cut -f1)
-        
+
         if [ -z "$SHA" ]; then
           echo "❌ Failed to resolve ref '$ACTION_REF' to a commit SHA"
           exit 1
         fi
-        
+
         echo "sha=$SHA" >> "$GITHUB_OUTPUT"
         echo "✅ Resolved '${{ github.action_ref }}' to commit SHA: $SHA"
 
