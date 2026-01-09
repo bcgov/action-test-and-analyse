@@ -220,6 +220,7 @@ runs:
 
     # If triggered: checkout downstream repo and run tests
     # Checkout the repository being tested
+    # Shallow clone is faster, but SonarCloud requires a full clone (fetch-depth: 0)
     - uses: actions/checkout@v6
       if: steps.diff.outputs.triggered == 'true'
       with:
@@ -359,7 +360,8 @@ runs:
           # If dep_scan is 'warn', don't fail the workflow
           if [ "${{ inputs.dep_scan }}" = "warn" ]; then
             echo "⚠️  Running in warn mode - workflow will continue"
-            # Don't print success message when warnings were found
+            # Exit with success code to skip the success message below
+            exit 0
           else
             # dep_scan is 'error' or 'true' - fail the workflow
             exit $KNIP_EXIT_CODE
