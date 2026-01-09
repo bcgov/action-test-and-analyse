@@ -311,8 +311,8 @@ runs:
         fi
 
         # Clean up action-repo directory - no longer needed after installing packages and copying config
-        if [ -d "${{ github.workspace }}/action-repo" ]; then
-          rm -rf "${{ github.workspace }}/action-repo"
+        if [ -d "${GITHUB_WORKSPACE}/action-repo" ]; then
+          rm -rf "${GITHUB_WORKSPACE}/action-repo"
         fi
 
     # Fix - Clone for action.yml and other verifications
