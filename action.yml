@@ -148,9 +148,22 @@ runs:
         
         # Install dependencies locally first
         echo "📦 Installing dependencies from package.json..."
-        if ! npm ci; then
-          echo "❌ Failed to install dependencies"
-          exit 1
+        # Try npm ci first (preferred for reproducible builds)
+        if ! npm ci 2>&1 | tee /tmp/npm-ci-output.log; then
+          # Check if failure is due to lockfile mismatch
+          if grep -q "package.json and package-lock.json.*are in sync" /tmp/npm-ci-output.log || \
+             grep -q "Missing:.*from lock file" /tmp/npm-ci-output.log; then
+            echo "⚠️  package-lock.json is out of sync with package.json"
+            echo "⚠️  Falling back to 'npm install' - please update package-lock.json locally"
+            echo "⚠️  Run 'npm install' locally and commit the updated package-lock.json"
+            if ! npm install; then
+              echo "❌ Failed to install dependencies with npm install"
+              exit 1
+            fi
+          else
+            echo "❌ Failed to install dependencies"
+            exit 1
+          fi
         fi
         
         # Install packages globally from local node_modules
