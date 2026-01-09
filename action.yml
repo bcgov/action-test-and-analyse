@@ -117,44 +117,21 @@ runs:
         cache: ${{ inputs.cache }}
         cache-dependency-path: ${{ inputs.dir }}/package-lock.json
 
-    # Setup supply chain attack detection (opt-in)
-    - name: Set up supply chain attack detection
-      if: steps.diff.outputs.triggered == 'true' && inputs.supply_scan == 'true'
-      shell: bash
-      run: |
-        set -e
-        echo "🔒 Installing @aikidosec/safe-chain for supply chain attack detection..."
-        if ! npm install -g @aikidosec/safe-chain@1.1.10; then
-          echo "❌ Failed to install @aikidosec/safe-chain"
-          exit 1
-        fi
-        if ! safe-chain setup-ci; then
-          echo "❌ Failed to setup safe-chain"
-          exit 1
-        fi
-        echo "✅ Safe-chain setup complete"
-
-    # Run tests, hopefully generating coverage for SonarCloud
-    - if: steps.diff.outputs.triggered == 'true'
-      shell: bash
-      working-directory: ${{ inputs.dir }}
-      run: ${{ inputs.commands }}
-
-    # Setup Knip for dependency and export analysis (opt-in)
-    - name: Checkout action repository for Knip dependencies
-      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off' && inputs.dep_scan != 'false'
+    # Checkout action repository for dependencies (if either tool is needed)
+    - name: Checkout action repository for dependencies
+      if: steps.diff.outputs.triggered == 'true' && (inputs.supply_scan == 'true' || inputs.dep_scan != 'off' && inputs.dep_scan != 'false')
       uses: actions/checkout@v6
       with:
         repository: ${{ github.repository }}
         ref: ${{ github.ref }}
         path: action-repo
 
-    - name: Install Knip dependencies
-      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off' && inputs.dep_scan != 'false'
+    # Install action dependencies and install globally
+    - name: Install action dependencies globally
+      if: steps.diff.outputs.triggered == 'true' && (inputs.supply_scan == 'true' || inputs.dep_scan != 'off' && inputs.dep_scan != 'false')
       shell: bash
       run: |
         set -e
-        echo "🔍 Installing Knip for dependency and export analysis..."
         cd action-repo
         
         # Verify required files exist
@@ -169,11 +146,54 @@ runs:
           exit 1
         fi
         
+        # Install dependencies locally first
+        echo "📦 Installing dependencies from package.json..."
         if ! npm ci; then
-          echo "❌ Failed to install Knip dependencies"
+          echo "❌ Failed to install dependencies"
           exit 1
         fi
-        echo "✅ Knip dependencies installed"
+        
+        # Install packages globally from local node_modules
+        echo "🌐 Installing packages globally..."
+        if [ "${{ inputs.supply_scan }}" = "true" ]; then
+          echo "  Installing @aikidosec/safe-chain..."
+          if ! npm install -g ./node_modules/@aikidosec/safe-chain; then
+            echo "❌ Failed to install @aikidosec/safe-chain globally"
+            exit 1
+          fi
+        fi
+        if [ "${{ inputs.dep_scan }}" != "off" ] && [ "${{ inputs.dep_scan }}" != "false" ]; then
+          echo "  Installing knip..."
+          if ! npm install -g ./node_modules/knip; then
+            echo "❌ Failed to install knip globally"
+            exit 1
+          fi
+        fi
+        
+        # Clean up - no longer need local node_modules
+        echo "🧹 Cleaning up local node_modules..."
+        rm -rf node_modules
+        
+        echo "✅ Dependencies installed globally"
+
+    # Setup supply chain attack detection (opt-in)
+    - name: Set up supply chain attack detection
+      if: steps.diff.outputs.triggered == 'true' && inputs.supply_scan == 'true'
+      shell: bash
+      run: |
+        set -e
+        echo "🔒 Setting up @aikidosec/safe-chain..."
+        if ! safe-chain setup-ci; then
+          echo "❌ Failed to setup safe-chain"
+          exit 1
+        fi
+        echo "✅ Safe-chain setup complete"
+
+    # Run tests, hopefully generating coverage for SonarCloud
+    - if: steps.diff.outputs.triggered == 'true'
+      shell: bash
+      working-directory: ${{ inputs.dir }}
+      run: ${{ inputs.commands }}
 
     - name: Run Knip for dependency and export analysis
       if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off' && inputs.dep_scan != 'false'
@@ -260,7 +280,7 @@ runs:
 
         # Run knip and capture exit code (temporarily disable set -e to capture exit code)
         set +e
-        npx --prefix action-repo knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"}
+        knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"}
         KNIP_EXIT_CODE=$?
         set -e
 
