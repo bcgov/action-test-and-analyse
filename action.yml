@@ -102,10 +102,9 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         diff_branch: ${{ inputs.diff_branch }}
 
-    # Shallow clone is faster, but SonarCloud requires a full clone
+    # Shallow clone is faster; SonarCloud action handles its own checkout
     - uses: actions/checkout@v6
       with:
-        fetch-depth: ${{ inputs.sonar_token && '0' || '1' }}
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.branch }}
 
