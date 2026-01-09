@@ -179,6 +179,7 @@ runs:
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.branch }}
+        fetch-depth: 0
 
     # Setup node and cache dir
     - uses: actions/setup-node@v6
