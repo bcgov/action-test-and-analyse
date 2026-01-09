@@ -133,16 +133,16 @@ runs:
       run: |
         set -e
         cd action-repo
-        
+
         # Verify package.json exists
         if [ ! -f "package.json" ]; then
           echo "❌ package.json not found in action repository"
           exit 1
         fi
-        
+
         # Install packages globally from npm registry using versions from package.json
         echo "🌐 Installing packages globally from package.json..."
-        
+
         if [ "${{ inputs.supply_scan }}" = "true" ]; then
           SAFE_CHAIN_VERSION=$(jq -r '.dependencies["@aikidosec/safe-chain"]' package.json | sed 's/[\^~]//')
           echo "  Installing @aikidosec/safe-chain@$SAFE_CHAIN_VERSION..."
@@ -152,7 +152,7 @@ runs:
           fi
           echo "  ✓ @aikidosec/safe-chain installed globally"
         fi
-        
+
         if [ "${{ inputs.dep_scan }}" != "off" ] && [ "${{ inputs.dep_scan }}" != "false" ]; then
           KNIP_VERSION=$(jq -r '.dependencies["knip"]' package.json | sed 's/[\^~]//')
           echo "  Installing knip@$KNIP_VERSION..."
@@ -162,7 +162,7 @@ runs:
           fi
           echo "  ✓ knip installed globally"
         fi
-        
+
         echo "✅ Packages installed globally"
 
     # Setup supply chain attack detection (opt-in)
@@ -267,27 +267,76 @@ runs:
           KNIP_HINTS_ARG="--no-config-hints"
         fi
 
-        # Run knip and capture exit code (temporarily disable set -e to capture exit code)
+        # Run knip and capture output and exit code (temporarily disable set -e to capture exit code)
         set +e
-        knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"}
+        KNIP_OUTPUT=$(knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"} 2>&1)
         KNIP_EXIT_CODE=$?
         set -e
+
+        # Write Knip output to step summary
+        echo "## 🔍 Knip Analysis Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ $KNIP_EXIT_CODE -ne 0 ]; then
+          echo "### ⚠️ Issues Found" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Knip found unused dependencies or exports that should be reviewed:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### ✅ No Issues Found" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All dependencies and exports are in use." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "$KNIP_OUTPUT" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
 
         if [ $KNIP_EXIT_CODE -ne 0 ]; then
           echo ""
           echo "⚠️  Knip found unused dependencies or exports"
           echo "ℹ️  Review the output above to clean up your project"
           
+          # Add warning annotation to workflow summary (shows in annotations tab)
+          echo "::warning::Knip found unused dependencies or exports. Review the detailed output in the step summary."
+          
+          # Parse output and add individual file-level annotations
+          # Look for file paths in the output (common patterns: file:line or file.ext)
+          while IFS= read -r line; do
+            # Skip empty lines, decorative lines, and summary lines
+            if [[ -n "$line" && ! "$line" =~ ^(Found|✂|─|│|└|├|  |Unused|^$) ]]; then
+              # Check if line contains a file path (common patterns)
+              if [[ "$line" =~ \.([jt]sx?|json|mjs|cjs)[:[:space:]] ]] || [[ "$line" =~ ^[[:space:]]*[^[:space:]]+\.([jt]sx?|json) ]]; then
+                # Extract file path if possible
+                FILE_PATH=$(echo "$line" | grep -oE '[^[:space:]]+\.([jt]sx?|json|mjs|cjs)' | head -1)
+                if [ -n "$FILE_PATH" ]; then
+                  echo "::warning file=$FILE_PATH::$line"
+                else
+                  echo "::warning::$line"
+                fi
+              else
+                # For other significant lines, add as warning
+                echo "::warning::$line"
+              fi
+            fi
+          done <<< "$KNIP_OUTPUT"
+          
           # If dep_scan is 'warn', don't fail the workflow
           if [ "${{ inputs.dep_scan }}" = "warn" ]; then
             echo "⚠️  Running in warn mode - workflow will continue"
-            exit 0
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> ℹ️ **Warn mode**: Workflow continues despite issues. Consider cleaning up unused dependencies." >> $GITHUB_STEP_SUMMARY
           else
             # dep_scan is 'error' or 'true' - fail the workflow
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> ❌ **Error mode**: Workflow failed. Please resolve unused dependencies or exports." >> $GITHUB_STEP_SUMMARY
             exit $KNIP_EXIT_CODE
           fi
+        else
+          echo "✅ Knip analysis complete - no unused dependencies or exports found"
         fi
-        echo "✅ Knip analysis complete - no unused dependencies or exports found"
 
     ### Optional SonarCloud
 
