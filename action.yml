@@ -102,21 +102,7 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         diff_branch: ${{ inputs.diff_branch }}
 
-    # Checkout the repository being tested
-    - uses: actions/checkout@v6
-      if: steps.diff.outputs.triggered == 'true'
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.branch }}
-
-    # Setup node and cache dir
-    - uses: actions/setup-node@v6
-      if: steps.diff.outputs.triggered == 'true'
-      with:
-        node-version: ${{ inputs.node_version }}
-        cache: ${{ inputs.cache }}
-        cache-dependency-path: ${{ inputs.dir }}/package-lock.json
-
+    # If triggered and (dep or supply) enabled: prepare tools first
     # Checkout action repository for dependencies (if either tool is needed)
     - name: Checkout action repository for dependencies
       if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || (inputs.dep_scan != 'off' && inputs.dep_scan != 'false'))
@@ -186,12 +172,41 @@ runs:
         fi
         echo "✅ Safe-chain setup complete"
 
+    # If triggered: checkout downstream repo and run tests
+    # Checkout the repository being tested
+    - uses: actions/checkout@v6
+      if: steps.diff.outputs.triggered == 'true'
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.branch }}
+
+    # Setup node and cache dir
+    - uses: actions/setup-node@v6
+      if: steps.diff.outputs.triggered == 'true'
+      with:
+        node-version: ${{ inputs.node_version }}
+        cache: ${{ inputs.cache }}
+        cache-dependency-path: ${{ inputs.dir }}/package-lock.json
+
     # Run tests, hopefully generating coverage for SonarCloud
     - if: steps.diff.outputs.triggered == 'true'
       shell: bash
       working-directory: ${{ inputs.dir }}
       run: ${{ inputs.commands }}
 
+    ### Optional SonarCloud
+
+    # If sonar_token
+    - if: inputs.sonar_token && steps.diff.outputs.triggered == 'true'
+      uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9 # v7.0.0
+      env:
+        SONAR_TOKEN: ${{ inputs.sonar_token }}
+      with:
+        projectBaseDir: ${{ inputs.dir }}
+        args: >
+          ${{ inputs.sonar_args }}
+
+    # If triggered and (dep or supply) enabled: run analysis tools
     - name: Run Knip for dependency and export analysis
       if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off' && inputs.dep_scan != 'false'
       shell: bash
@@ -294,17 +309,10 @@ runs:
           echo "✅ Knip analysis complete - no unused dependencies or exports found"
         fi
 
-    ### Optional SonarCloud
-
-    # If sonar_token
-    - if: inputs.sonar_token && steps.diff.outputs.triggered == 'true'
-      uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9 # v7.0.0
-      env:
-        SONAR_TOKEN: ${{ inputs.sonar_token }}
-      with:
-        projectBaseDir: ${{ inputs.dir }}
-        args: >
-          ${{ inputs.sonar_args }}
+        # Clean up action-repo directory - no longer needed after installing packages and copying config
+        if [ -d "${{ github.workspace }}/action-repo" ]; then
+          rm -rf "${{ github.workspace }}/action-repo"
+        fi
 
     # Fix - Clone for action.yml and other verifications
     - name: Checkout Action repo to pass tests
