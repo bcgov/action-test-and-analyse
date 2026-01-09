@@ -272,7 +272,7 @@ runs:
         KNIP_OUTPUT=$(knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"} 2>&1)
         KNIP_EXIT_CODE=$?
         set -e
-        
+
         # Strip ANSI color codes and control characters from output
         KNIP_OUTPUT=$(echo "$KNIP_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' | sed 's/[\x00-\x1F\x7F]//g')
 
@@ -305,72 +305,6 @@ runs:
           # Add warning annotation to workflow summary (shows in annotations tab)
           echo "::warning::Knip found unused dependencies or exports. Review the detailed output in the step summary."
           
-          # Parse output and add individual file-level annotations
-          # Track seen issues to avoid duplicates
-          declare -A SEEN_ANNOTATIONS
-          
-          while IFS= read -r line; do
-            # Skip empty lines, decorative lines, summary headers, and configuration hints
-            if [[ -z "$line" ]] || \
-               [[ "$line" =~ ^(Found|✂|─|│|└|├|  |Unused|^$) ]] || \
-               [[ "$line" =~ ^(Configuration hints|Unused devDependencies|Unused dependencies|Unused exports|Unresolved imports) ]] || \
-               [[ "$line" =~ "Remove from ignoreDependencies" ]] || \
-               [[ "$line" =~ "Remove from ignore" ]]; then
-              continue
-            fi
-            
-            # Skip lines that are just counts like "(4)" or "(1)"
-            if [[ "$line" =~ ^[[:space:]]*\([0-9]+\)[[:space:]]*$ ]]; then
-              continue
-            fi
-            
-            # Extract file path with line:column pattern (e.g., "package.json:38:6")
-            if [[ "$line" =~ ([^[:space:]]+\.([jt]sx?|json|mjs|cjs)):([0-9]+):([0-9]+) ]]; then
-              FILE_PATH="${BASH_REMATCH[1]}"
-              LINE_NUM="${BASH_REMATCH[3]}"
-              COL_NUM="${BASH_REMATCH[4]}"
-              
-              # Create unique key for deduplication
-              ANNOTATION_KEY="${FILE_PATH}:${LINE_NUM}:${COL_NUM}"
-              
-              if [[ -z "${SEEN_ANNOTATIONS[$ANNOTATION_KEY]}" ]]; then
-                SEEN_ANNOTATIONS[$ANNOTATION_KEY]=1
-                
-                # Extract clean issue description
-                # Remove file path and line/column info, extract just the dependency/export name
-                CLEAN_LINE=$(echo "$line" | sed -E "s/.*${FILE_PATH}:[0-9]+:[0-9]+[[:space:]]*//")
-                
-                # Try to extract just the package/export name (first word after path, or before any description)
-                if [[ "$CLEAN_LINE" =~ ^([^[:space:]]+) ]]; then
-                  ISSUE_NAME="${BASH_REMATCH[1]}"
-                  # Remove any trailing punctuation or description
-                  ISSUE_NAME=$(echo "$ISSUE_NAME" | sed 's/[.,;:]$//')
-                  echo "::warning file=${FILE_PATH},line=${LINE_NUM},col=${COL_NUM}::Unused: ${ISSUE_NAME}"
-                elif [[ -n "$CLEAN_LINE" ]]; then
-                  echo "::warning file=${FILE_PATH},line=${LINE_NUM},col=${COL_NUM}::${CLEAN_LINE}"
-                else
-                  # Fallback: extract package name from the line before the file path
-                  if [[ "$line" =~ ([@a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*)[[:space:]]+${FILE_PATH} ]]; then
-                    PKG_NAME="${BASH_REMATCH[1]}"
-                    echo "::warning file=${FILE_PATH},line=${LINE_NUM},col=${COL_NUM}::Unused: ${PKG_NAME}"
-                  fi
-                fi
-              fi
-            # Handle unresolved imports (e.g., "./~bootstrap/scss/bootstrap src/scss/styles.scss:1:17")
-            elif [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+([^[:space:]]+\.([jt]sx?|scss|css)):([0-9]+):([0-9]+) ]]; then
-              IMPORT_PATH="${BASH_REMATCH[1]}"
-              FILE_PATH="${BASH_REMATCH[2]}"
-              LINE_NUM="${BASH_REMATCH[4]}"
-              COL_NUM="${BASH_REMATCH[5]}"
-              
-              ANNOTATION_KEY="${FILE_PATH}:${LINE_NUM}:${COL_NUM}:${IMPORT_PATH}"
-              
-              if [[ -z "${SEEN_ANNOTATIONS[$ANNOTATION_KEY]}" ]]; then
-                SEEN_ANNOTATIONS[$ANNOTATION_KEY]=1
-                echo "::warning file=${FILE_PATH},line=${LINE_NUM},col=${COL_NUM}::Unresolved import: ${IMPORT_PATH}"
-              fi
-            fi
-          done <<< "$KNIP_OUTPUT"
           
           # If dep_scan is 'warn', don't fail the workflow
           if [ "${{ inputs.dep_scan }}" = "warn" ]; then
