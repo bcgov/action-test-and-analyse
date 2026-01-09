@@ -152,6 +152,12 @@ runs:
           exit 1
         fi
 
+        # Validate SHA format (should be 40 hex characters)
+        if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "❌ Invalid SHA format resolved: '$SHA'"
+          exit 1
+        fi
+
         echo "sha=$SHA" >> "$GITHUB_OUTPUT"
         echo "✅ Resolved '${{ github.action_ref }}' to commit SHA: $SHA"
 
@@ -163,6 +169,7 @@ runs:
         repository: bcgov/action-test-and-analyse
         ref: ${{ steps.resolve-action-sha.outputs.sha }}
         path: action-repo
+      continue-on-error: false
 
     # Install packages globally from package.json
     - name: Install packages globally from package.json
@@ -170,11 +177,26 @@ runs:
       shell: bash
       run: |
         set -e
+        
+        # Debug: Check if action-repo directory exists and list contents
+        if [ ! -d "action-repo" ]; then
+          echo "❌ action-repo directory not found after checkout"
+          echo "Current directory: $(pwd)"
+          echo "Contents: $(ls -la)"
+          exit 1
+        fi
+        
+        echo "📁 Contents of action-repo:"
+        ls -la action-repo/ || true
+        
         cd action-repo
 
         # Verify package.json exists
         if [ ! -f "package.json" ]; then
           echo "❌ package.json not found in action repository"
+          echo "Current directory: $(pwd)"
+          echo "Contents: $(ls -la)"
+          echo "Resolved SHA: ${{ steps.resolve-action-sha.outputs.sha }}"
           exit 1
         fi
 
