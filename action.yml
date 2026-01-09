@@ -116,14 +116,6 @@ runs:
       shell: bash
       run: |
         set -e
-
-        # Verify action-repo directory exists
-        if [ ! -d "action-repo" ]; then
-          echo "❌ action-repo directory not found after checkout"
-          exit 1
-        fi
-
-        # Change to action-repo directory
         cd action-repo
 
         # Verify package.json exists
@@ -132,41 +124,25 @@ runs:
           exit 1
         fi
 
-        PACKAGE_JSON="package.json"
-
         # Install packages globally from npm registry using versions from package.json
         # npm can handle semver ranges directly, so we pass the version as-is from package.json
-        echo "🌐 Installing packages globally from package.json..."
-
         if [ "${{ inputs.supply_scan }}" = "true" ]; then
-          SAFE_CHAIN_VERSION=$(jq -r '.dependencies["@aikidosec/safe-chain"] // empty' "$PACKAGE_JSON")
+          SAFE_CHAIN_VERSION=$(jq -r '.dependencies["@aikidosec/safe-chain"] // empty' package.json)
           if [ -z "$SAFE_CHAIN_VERSION" ] || [ "$SAFE_CHAIN_VERSION" = "null" ]; then
             echo "❌ @aikidosec/safe-chain not found in package.json"
             exit 1
           fi
-          echo "  Installing @aikidosec/safe-chain@$SAFE_CHAIN_VERSION..."
-          if ! npm install -g "@aikidosec/safe-chain@$SAFE_CHAIN_VERSION"; then
-            echo "❌ Failed to install @aikidosec/safe-chain globally"
-            exit 1
-          fi
-          echo "  ✓ @aikidosec/safe-chain installed globally"
+          npm install -g "@aikidosec/safe-chain@$SAFE_CHAIN_VERSION"
         fi
 
         if [ "${{ inputs.dep_scan }}" != "off" ]; then
-          KNIP_VERSION=$(jq -r '.dependencies["knip"] // empty' "$PACKAGE_JSON")
+          KNIP_VERSION=$(jq -r '.dependencies["knip"] // empty' package.json)
           if [ -z "$KNIP_VERSION" ] || [ "$KNIP_VERSION" = "null" ]; then
             echo "❌ knip not found in package.json"
             exit 1
           fi
-          echo "  Installing knip@$KNIP_VERSION..."
-          if ! npm install -g "knip@$KNIP_VERSION"; then
-            echo "❌ Failed to install knip globally"
-            exit 1
-          fi
-          echo "  ✓ knip installed globally"
+          npm install -g "knip@$KNIP_VERSION"
         fi
-
-        echo "✅ Packages installed globally"
 
     # Setup supply chain attack detection (opt-in)
     - name: Set up supply chain attack detection
@@ -174,12 +150,7 @@ runs:
       shell: bash
       run: |
         set -e
-        echo "🔒 Setting up @aikidosec/safe-chain..."
-        if ! safe-chain setup-ci; then
-          echo "❌ Failed to setup safe-chain"
-          exit 1
-        fi
-        echo "✅ Safe-chain setup complete"
+        safe-chain setup-ci
 
     # If triggered: checkout downstream repo and run tests
     # Checkout the repository being tested
@@ -219,13 +190,12 @@ runs:
 
     # Clean up action-repo directory - no longer needed after installing packages and copying config
     - name: Cleanup action-repo directory
-      if: always() && steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || (inputs.dep_scan != 'off' && inputs.dep_scan != 'false'))
+      if: always() && steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || inputs.dep_scan != 'off')
       shell: bash
       run: |
         set -e
         if [ -d "${GITHUB_WORKSPACE}/action-repo" ]; then
           rm -rf "${GITHUB_WORKSPACE}/action-repo"
-          echo "✅ Cleaned up action-repo directory"
         fi
 
     # If triggered and (dep or supply) enabled: run analysis tools
@@ -234,8 +204,7 @@ runs:
       shell: bash
       run: |
         set -e
-        echo "🧹 Running Knip to check for unused dependencies and exports..."
-        cd "${{ github.workspace }}/${{ inputs.dir }}" || { echo "❌ Failed to change directory to '${{ github.workspace }}/${{ inputs.dir }}'. Please verify the 'dir' input."; exit 1; }
+        cd "${{ github.workspace }}/${{ inputs.dir }}"
 
         # Handle Knip configuration
         KNIP_CONFIG_ARG=""
@@ -258,7 +227,6 @@ runs:
           
           if [ -f "$CUSTOM_CONFIG" ]; then
             KNIP_CONFIG_ARG="--config=$CUSTOM_CONFIG"
-            echo "✅ Using custom Knip config from ${{ inputs.knip_config }}"
           else
             echo "❌ Custom Knip config not found at $CUSTOM_CONFIG"
             echo "   Please verify the 'knip_config' input path and ensure the file exists."
@@ -271,7 +239,6 @@ runs:
         if [ -z "$KNIP_CONFIG_ARG" ]; then
           # No custom config provided - use action's default
           # Note: This will overwrite any existing .knip.json in the project directory
-          echo "ℹ️ Using action's default Knip configuration..."
           USING_DEFAULT_CONFIG=true
           PROJECT_KNIP=".knip.json"
           
@@ -280,7 +247,6 @@ runs:
           
           # If file not found, create default config inline
           if [ ! -f "$DEFAULT_KNIP" ]; then
-            echo "📝 Creating default .knip.json with common exceptions..."
             # Use multiline string for better readability and maintainability
             DEFAULT_KNIP_JSON='{
               "ignoreDependencies": [
@@ -295,10 +261,8 @@ runs:
               ]
             }'
             echo "$DEFAULT_KNIP_JSON" > "$PROJECT_KNIP"
-            echo "✅ Applied default .knip.json with common exceptions"
           else
             cp "$DEFAULT_KNIP" "$PROJECT_KNIP"
-            echo "✅ Applied default .knip.json with common exceptions"
           fi
         fi
 
@@ -316,21 +280,14 @@ runs:
         set -e
 
         if [ $KNIP_EXIT_CODE -ne 0 ]; then
-          echo ""
-          echo "⚠️  Knip found unused dependencies or exports"
-          echo "ℹ️  Review the output above to clean up your project"
-          
           # If dep_scan is 'warn', don't fail the workflow
           if [ "${{ inputs.dep_scan }}" = "warn" ]; then
-            echo "⚠️  Running in warn mode - workflow will continue"
-            # Exit with success code to skip the success message below
+            echo "⚠️  Knip found issues but running in warn mode - workflow will continue"
             exit 0
           else
             # dep_scan is 'error' - fail the workflow
             exit $KNIP_EXIT_CODE
           fi
-        else
-          echo "✅ Knip analysis complete - no unused dependencies or exports found"
         fi
 
     # Fix - Clone for action.yml and other verifications
