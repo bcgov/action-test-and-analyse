@@ -126,83 +126,44 @@ runs:
         ref: ${{ github.ref }}
         path: action-repo
 
-    # Install action dependencies and install globally
-    - name: Install action dependencies globally
+    # Install packages globally from package.json
+    - name: Install packages globally from package.json
       if: steps.diff.outputs.triggered == 'true' && (inputs.supply_scan == 'true' || inputs.dep_scan != 'off' && inputs.dep_scan != 'false')
       shell: bash
       run: |
         set -e
         cd action-repo
-
-        # Verify required files exist
+        
+        # Verify package.json exists
         if [ ! -f "package.json" ]; then
           echo "❌ package.json not found in action repository"
           exit 1
         fi
-
-        if [ ! -f "package-lock.json" ]; then
-          echo "❌ package-lock.json not found in action repository"
-          echo "package-lock.json must be committed to the action repository for reproducible builds."
-          exit 1
-        fi
-
-        # Install dependencies locally first
-        echo "📦 Installing dependencies from package.json..."
-        # Try npm ci first (preferred for reproducible builds)
-        if ! npm ci 2>&1 | tee /tmp/npm-ci-output.log; then
-          # Check if failure is due to lockfile mismatch
-          if grep -q "package.json and package-lock.json.*are in sync" /tmp/npm-ci-output.log || \
-             grep -q "Missing:.*from lock file" /tmp/npm-ci-output.log; then
-            echo "⚠️  package-lock.json is out of sync with package.json"
-            echo "⚠️  Falling back to 'npm install' - please update package-lock.json locally"
-            echo "⚠️  Run 'npm install' locally and commit the updated package-lock.json"
-            if ! npm install; then
-              echo "❌ Failed to install dependencies with npm install"
-              exit 1
-            fi
-          else
-            echo "❌ Failed to install dependencies"
-            exit 1
-          fi
-        fi
-
-        # Install packages globally from local node_modules
-        echo "🌐 Installing packages globally..."
-        NPM_GLOBAL_BIN=$(npm config get prefix)/bin
-        export PATH="$NPM_GLOBAL_BIN:$PATH"
-
+        
+        # Install packages globally from npm registry using versions from package.json
+        echo "🌐 Installing packages globally from package.json..."
+        
         if [ "${{ inputs.supply_scan }}" = "true" ]; then
-          echo "  Installing @aikidosec/safe-chain..."
-          if ! npm install -g ./node_modules/@aikidosec/safe-chain; then
+          SAFE_CHAIN_VERSION=$(jq -r '.dependencies["@aikidosec/safe-chain"]' package.json | sed 's/[\^~]//')
+          echo "  Installing @aikidosec/safe-chain@$SAFE_CHAIN_VERSION..."
+          if ! npm install -g "@aikidosec/safe-chain@$SAFE_CHAIN_VERSION"; then
             echo "❌ Failed to install @aikidosec/safe-chain globally"
             exit 1
           fi
-          # Verify safe-chain was installed (use -e to check for file or symlink)
-          if [ ! -e "$NPM_GLOBAL_BIN/safe-chain" ]; then
-            echo "❌ safe-chain binary not found after global install at $NPM_GLOBAL_BIN/safe-chain"
-            exit 1
-          fi
-          echo "  ✓ safe-chain installed at $NPM_GLOBAL_BIN/safe-chain"
+          echo "  ✓ @aikidosec/safe-chain installed globally"
         fi
+        
         if [ "${{ inputs.dep_scan }}" != "off" ] && [ "${{ inputs.dep_scan }}" != "false" ]; then
-          echo "  Installing knip..."
-          if ! npm install -g ./node_modules/knip; then
+          KNIP_VERSION=$(jq -r '.dependencies["knip"]' package.json | sed 's/[\^~]//')
+          echo "  Installing knip@$KNIP_VERSION..."
+          if ! npm install -g "knip@$KNIP_VERSION"; then
             echo "❌ Failed to install knip globally"
             exit 1
           fi
-          # Verify knip was installed (use -e to check for file or symlink)
-          if [ ! -e "$NPM_GLOBAL_BIN/knip" ]; then
-            echo "❌ knip binary not found after global install at $NPM_GLOBAL_BIN/knip"
-            exit 1
-          fi
-          echo "  ✓ knip installed at $NPM_GLOBAL_BIN/knip"
+          echo "  ✓ knip installed globally"
         fi
-
-        # Clean up - no longer need local node_modules
-        echo "🧹 Cleaning up local node_modules..."
-        rm -rf node_modules
-
-        echo "✅ Dependencies installed globally"
+        
+        echo "✅ Packages installed globally"
 
     # Setup supply chain attack detection (opt-in)
     - name: Set up supply chain attack detection
@@ -211,28 +172,7 @@ runs:
       run: |
         set -e
         echo "🔒 Setting up @aikidosec/safe-chain..."
-
-        # Get npm global bin directory and ensure it's in PATH
-        NPM_GLOBAL_BIN=$(npm config get prefix)/bin
-        export PATH="$NPM_GLOBAL_BIN:$PATH"
-
-        # Find safe-chain binary (try PATH first, then direct path)
-        SAFE_CHAIN_CMD=""
-        if command -v safe-chain >/dev/null 2>&1; then
-          SAFE_CHAIN_CMD="safe-chain"
-        elif [ -e "$NPM_GLOBAL_BIN/safe-chain" ]; then
-          SAFE_CHAIN_CMD="$NPM_GLOBAL_BIN/safe-chain"
-        else
-          echo "❌ safe-chain not found"
-          echo "  PATH: $PATH"
-          echo "  npm global bin: $NPM_GLOBAL_BIN"
-          echo "  Checking for safe-chain:"
-          ls -la "$NPM_GLOBAL_BIN/safe-chain" 2>&1 || echo "    Not found at $NPM_GLOBAL_BIN/safe-chain"
-          exit 1
-        fi
-
-        echo "  Using safe-chain: $SAFE_CHAIN_CMD"
-        if ! $SAFE_CHAIN_CMD setup-ci; then
+        if ! safe-chain setup-ci; then
           echo "❌ Failed to setup safe-chain"
           exit 1
         fi
