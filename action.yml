@@ -303,22 +303,61 @@ runs:
           echo "::warning::Knip found unused dependencies or exports. Review the detailed output in the step summary."
           
           # Parse output and add individual file-level annotations
-          # Look for file paths in the output (common patterns: file:line or file.ext)
+          # Track seen issues to avoid duplicates
+          declare -A SEEN_ANNOTATIONS
+          
           while IFS= read -r line; do
-            # Skip empty lines, decorative lines, and summary lines
-            if [[ -n "$line" && ! "$line" =~ ^(Found|✂|─|│|└|├|  |Unused|^$) ]]; then
-              # Check if line contains a file path (common patterns)
-              if [[ "$line" =~ \.([jt]sx?|json|mjs|cjs)[:[:space:]] ]] || [[ "$line" =~ ^[[:space:]]*[^[:space:]]+\.([jt]sx?|json) ]]; then
-                # Extract file path if possible
-                FILE_PATH=$(echo "$line" | grep -oE '[^[:space:]]+\.([jt]sx?|json|mjs|cjs)' | head -1)
-                if [ -n "$FILE_PATH" ]; then
-                  echo "::warning file=$FILE_PATH::$line"
+            # Skip empty lines, decorative lines, summary headers, and configuration hints
+            if [[ -z "$line" ]] || \
+               [[ "$line" =~ ^(Found|✂|─|│|└|├|  |Unused|^$) ]] || \
+               [[ "$line" =~ ^(Configuration hints|Unused devDependencies|Unused dependencies|Unused exports|Unresolved imports) ]] || \
+               [[ "$line" =~ "Remove from ignoreDependencies" ]] || \
+               [[ "$line" =~ "Remove from ignore" ]]; then
+              continue
+            fi
+            
+            # Skip lines that are just counts like "(4)" or "(1)"
+            if [[ "$line" =~ ^[[:space:]]*\([0-9]+\)[[:space:]]*$ ]]; then
+              continue
+            fi
+            
+            # Extract file path with line:column pattern (e.g., "package.json:38:6" or "src/file.ts:10:5")
+            if [[ "$line" =~ ([^[:space:]]+\.([jt]sx?|json|mjs|cjs)):([0-9]+):([0-9]+) ]]; then
+              FILE_PATH="${BASH_REMATCH[1]}"
+              LINE_NUM="${BASH_REMATCH[3]}"
+              COL_NUM="${BASH_REMATCH[4]}"
+              
+              # Create unique key for deduplication
+              ANNOTATION_KEY="${FILE_PATH}:${LINE_NUM}:${COL_NUM}"
+              
+              if [[ -z "${SEEN_ANNOTATIONS[$ANNOTATION_KEY]}" ]]; then
+                SEEN_ANNOTATIONS[$ANNOTATION_KEY]=1
+                # Extract the issue description (everything after the file path)
+                ISSUE_DESC=$(echo "$line" | sed -E "s/.*${FILE_PATH}:[0-9]+:[0-9]+[[:space:]]*//")
+                if [[ -n "$ISSUE_DESC" ]]; then
+                  echo "::warning file=${FILE_PATH},line=${LINE_NUM},col=${COL_NUM}::${ISSUE_DESC}"
                 else
-                  echo "::warning::$line"
+                  echo "::warning file=${FILE_PATH},line=${LINE_NUM},col=${COL_NUM}::${line}"
                 fi
-              else
-                # For other significant lines, add as warning
-                echo "::warning::$line"
+              fi
+            # Fallback: extract file path without line numbers (e.g., "src/file.ts")
+            elif [[ "$line" =~ ([^[:space:]]+\.([jt]sx?|json|mjs|cjs)) ]]; then
+              FILE_PATH="${BASH_REMATCH[1]}"
+              ANNOTATION_KEY="${FILE_PATH}"
+              
+              if [[ -z "${SEEN_ANNOTATIONS[$ANNOTATION_KEY]}" ]]; then
+                SEEN_ANNOTATIONS[$ANNOTATION_KEY]=1
+                # Only create annotation if it looks like an actual issue, not a summary
+                if [[ ! "$line" =~ ^[[:space:]]*[0-9]+\.[[:space:]] ]] && \
+                   [[ ! "$line" =~ ^[[:space:]]*\([0-9]+\) ]] && \
+                   [[ "$line" =~ (unused|missing|not found|unresolved) ]]; then
+                  ISSUE_DESC=$(echo "$line" | sed -E "s/.*${FILE_PATH}[[:space:]]*//")
+                  if [[ -n "$ISSUE_DESC" ]]; then
+                    echo "::warning file=${FILE_PATH}::${ISSUE_DESC}"
+                  else
+                    echo "::warning file=${FILE_PATH}::${line}"
+                  fi
+                fi
               fi
             fi
           done <<< "$KNIP_OUTPUT"
