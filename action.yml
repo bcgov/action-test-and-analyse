@@ -66,8 +66,8 @@ inputs:
     default: ${{ github.repository }}
     pattern: "^[a-zA-Z0-9-_]+/[a-zA-Z0-9-_]+$"
 
-  ref:
-    description: Non-default ref to clone (used for testing this action)
+  branch:
+    description: Non-default branch to clone (used for testing this action)
     default: ""
     pattern: "^[a-zA-Z0-9._/-]*$"
 
@@ -188,7 +188,7 @@ runs:
       if: steps.diff.outputs.triggered == 'true'
       with:
         repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
+        ref: ${{ inputs.branch }}
         fetch-depth: 0
 
     # Setup node and cache dir
