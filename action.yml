@@ -66,8 +66,8 @@ inputs:
     default: ${{ github.repository }}
     pattern: "^[a-zA-Z0-9-_]+/[a-zA-Z0-9-_]+$"
 
-  branch:
-    description: Non-default branch to clone (used for testing this action)
+  ref:
+    description: Non-default ref to clone (used for testing this action)
     default: ""
     pattern: "^[a-zA-Z0-9._/-]*$"
 
@@ -103,89 +103,12 @@ runs:
         diff_branch: ${{ inputs.diff_branch }}
 
     # If triggered and (dep or supply) enabled: prepare tools first
-    # Check if we can use local package.json (when action is used from same repo)
-    - name: Check if using local package.json
-      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || (inputs.dep_scan != 'off' && inputs.dep_scan != 'false'))
-      id: check-local-package
-      shell: bash
-      run: |
-        set -e
-        ACTION_REF="${{ github.action_ref }}"
-        
-        # If github.action_ref is empty and package.json exists in workspace, use it directly
-        if [ -z "$ACTION_REF" ] && [ -f "package.json" ]; then
-          echo "use_local=true" >> "$GITHUB_OUTPUT"
-          echo "ℹ️  Using local package.json (action used from same repository)"
-        else
-          echo "use_local=false" >> "$GITHUB_OUTPUT"
-        fi
-
-    # Resolve action ref to commit SHA to handle wildcards and ensure we get exact version
-    - name: Resolve action ref to commit SHA
-      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || (inputs.dep_scan != 'off' && inputs.dep_scan != 'false')) && steps.check-local-package.outputs.use_local == 'false'
-      id: resolve-action-sha
-      shell: bash
-      run: |
-        set -e
-        ACTION_REF="${{ github.action_ref }}"
-
-        # Fallback if github.action_ref is empty (shouldn't happen if we got here, but just in case)
-        if [ -z "$ACTION_REF" ]; then
-          echo "ℹ️  github.action_ref is empty, falling back to default branch (main)"
-          ACTION_REF="main"
-        fi
-
-        # If it's already a full SHA (40 hex chars), use it directly
-        if [[ "$ACTION_REF" =~ ^[0-9a-f]{40}$ ]]; then
-          echo "sha=$ACTION_REF" >> "$GITHUB_OUTPUT"
-          echo "✅ Using provided commit SHA: $ACTION_REF"
-          exit 0
-        fi
-
-        # Query remote repository to resolve ref to SHA
-        # This handles tags (including wildcards), branches, and partial SHAs
-        echo "🔍 Resolving ref '$ACTION_REF' to commit SHA..."
-
-        # Try to resolve as a tag first (handles wildcards like v6*)
-        if [[ "$ACTION_REF" == *"*"* ]]; then
-          # Wildcard pattern - find latest matching tag
-          TAG_PATTERN="${ACTION_REF%\*}"
-          RESOLVED_TAG=$(git ls-remote --tags --sort=-version:refname "https://github.com/bcgov/action-test-and-analyse.git" | grep -E "refs/tags/${TAG_PATTERN}[0-9.]*$" | head -1 | cut -f2 | sed 's|refs/tags/||')
-          if [ -n "$RESOLVED_TAG" ]; then
-            echo "📌 Resolved wildcard '$ACTION_REF' to tag: $RESOLVED_TAG"
-            ACTION_REF="$RESOLVED_TAG"
-          else
-            echo "❌ No matching tag found for pattern '$ACTION_REF'"
-            exit 1
-          fi
-        fi
-
-        # Resolve ref to commit SHA
-        SHA=$(git ls-remote "https://github.com/bcgov/action-test-and-analyse.git" "$ACTION_REF" | cut -f1)
-
-        if [ -z "$SHA" ]; then
-          echo "❌ Failed to resolve ref '$ACTION_REF' to a commit SHA"
-          exit 1
-        fi
-
-        # Validate SHA format (should be 40 hex characters)
-        if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
-          echo "❌ Invalid SHA format resolved: '$SHA'"
-          exit 1
-        fi
-
-        echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-        echo "✅ Resolved '${{ github.action_ref }}' to commit SHA: $SHA"
-
-    # Checkout action repository for dependencies using resolved SHA (only if not using local)
+    # Checkout action repository for dependencies (no repository/ref specified = current repo at current commit)
     - name: Checkout action repository for dependencies
-      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || (inputs.dep_scan != 'off' && inputs.dep_scan != 'false')) && steps.check-local-package.outputs.use_local == 'false'
+      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || (inputs.dep_scan != 'off' && inputs.dep_scan != 'false'))
       uses: actions/checkout@v6
       with:
-        repository: bcgov/action-test-and-analyse
-        ref: ${{ steps.resolve-action-sha.outputs.sha }}
         path: action-repo
-      continue-on-error: false
 
     # Install packages globally from package.json
     - name: Install packages globally from package.json
@@ -194,46 +117,22 @@ runs:
       run: |
         set -e
 
-        # Determine package.json location based on whether we're using local or checked out version
-        if [ "${{ steps.check-local-package.outputs.use_local }}" = "true" ]; then
-          PACKAGE_JSON_PATH="package.json"
-          echo "📦 Using local package.json from workspace"
-        else
-          # Debug: Check if action-repo directory exists and list contents
-          if [ ! -d "action-repo" ]; then
-            echo "❌ action-repo directory not found after checkout"
-            echo "Current directory: $(pwd)"
-            echo "Contents: $(ls -la)"
-            exit 1
-          fi
-
-          echo "📁 Contents of action-repo:"
-          ls -la action-repo/ || true
-
-          PACKAGE_JSON_PATH="action-repo/package.json"
-          echo "📦 Using package.json from checked out action repository"
-        fi
-
-        # Verify package.json exists
-        if [ ! -f "$PACKAGE_JSON_PATH" ]; then
-          echo "❌ package.json not found at: $PACKAGE_JSON_PATH"
-          echo "Current directory: $(pwd)"
-          echo "Contents: $(ls -la)"
-          if [ "${{ steps.check-local-package.outputs.use_local }}" != "true" ]; then
-            echo "Resolved SHA: ${{ steps.resolve-action-sha.outputs.sha }}"
-          fi
+        # Verify action-repo directory exists
+        if [ ! -d "action-repo" ]; then
+          echo "❌ action-repo directory not found after checkout"
           exit 1
         fi
 
-        # Change to directory containing package.json for jq operations
-        if [ "${{ steps.check-local-package.outputs.use_local }}" = "true" ]; then
-          # Already in workspace root, package.json is here
-          PACKAGE_JSON="package.json"
-        else
-          # Change to action-repo directory
-          cd action-repo
-          PACKAGE_JSON="package.json"
+        # Change to action-repo directory
+        cd action-repo
+
+        # Verify package.json exists
+        if [ ! -f "package.json" ]; then
+          echo "❌ package.json not found in action repository"
+          exit 1
         fi
+
+        PACKAGE_JSON="package.json"
 
         # Install packages globally from npm registry using versions from package.json
         # npm can handle semver ranges directly, so we pass the version as-is from package.json
@@ -289,7 +188,7 @@ runs:
       if: steps.diff.outputs.triggered == 'true'
       with:
         repository: ${{ inputs.repository }}
-        ref: ${{ inputs.branch }}
+        ref: ${{ inputs.ref }}
         fetch-depth: 0
 
     # Setup node and cache dir
@@ -377,12 +276,7 @@ runs:
           PROJECT_KNIP=".knip.json"
           
           # Try to find the default config from the action
-          # Use local .knip.json if available, otherwise check action-repo
-          if [ "${{ steps.check-local-package.outputs.use_local }}" = "true" ] && [ -f ".knip.json" ]; then
-            DEFAULT_KNIP=".knip.json"
-          else
-            DEFAULT_KNIP="action-repo/.knip.json"
-          fi
+          DEFAULT_KNIP="action-repo/.knip.json"
           
           # If file not found, create default config inline
           if [ ! -f "$DEFAULT_KNIP" ]; then
