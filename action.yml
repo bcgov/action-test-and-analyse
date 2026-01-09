@@ -16,7 +16,7 @@ inputs:
     pattern: "^[a-zA-Z0-9._/-]+$"
 
   node_version:
-    description: Node version to use (e.g., '18', '20', '22')
+    description: Node version to use (e.g., '22')
     required: true
     pattern: '^[0-9]+(\.[0-9]+)*$'
 
@@ -104,12 +104,14 @@ runs:
 
     # If triggered and (dep or supply) enabled: prepare tools first
     # Checkout action repository for dependencies (if either tool is needed)
+    # Note: github.action_ref may contain wildcards (e.g., v6*) which checkout cannot handle.
+    # Wildcard refs are not supported for this feature - use specific tags/commits instead.
     - name: Checkout action repository for dependencies
       if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || (inputs.dep_scan != 'off' && inputs.dep_scan != 'false'))
       uses: actions/checkout@v6
       with:
         repository: bcgov/action-test-and-analyse
-        ref: ${{ github.action_sha }}
+        ref: ${{ github.action_ref }}
         path: action-repo
 
     # Install packages globally from package.json
@@ -127,11 +129,12 @@ runs:
         fi
 
         # Install packages globally from npm registry using versions from package.json
+        # npm can handle semver ranges directly, so we pass the version as-is from package.json
         echo "🌐 Installing packages globally from package.json..."
 
         if [ "${{ inputs.supply_scan }}" = "true" ]; then
-          SAFE_CHAIN_VERSION=$(jq -r '.dependencies["@aikidosec/safe-chain"] // empty' package.json | sed 's/[\^~]//')
-          if [ -z "$SAFE_CHAIN_VERSION" ]; then
+          SAFE_CHAIN_VERSION=$(jq -r '.dependencies["@aikidosec/safe-chain"] // empty' package.json)
+          if [ -z "$SAFE_CHAIN_VERSION" ] || [ "$SAFE_CHAIN_VERSION" = "null" ]; then
             echo "❌ @aikidosec/safe-chain not found in package.json"
             exit 1
           fi
@@ -144,8 +147,8 @@ runs:
         fi
 
         if [ "${{ inputs.dep_scan }}" != "off" ] && [ "${{ inputs.dep_scan }}" != "false" ]; then
-          KNIP_VERSION=$(jq -r '.dependencies["knip"] // empty' package.json | sed 's/[\^~]//')
-          if [ -z "$KNIP_VERSION" ]; then
+          KNIP_VERSION=$(jq -r '.dependencies["knip"] // empty' package.json)
+          if [ -z "$KNIP_VERSION" ] || [ "$KNIP_VERSION" = "null" ]; then
             echo "❌ knip not found in package.json"
             exit 1
           fi
@@ -206,6 +209,17 @@ runs:
         projectBaseDir: ${{ inputs.dir }}
         args: >
           ${{ inputs.sonar_args }}
+
+    # Clean up action-repo directory - no longer needed after installing packages and copying config
+    - name: Cleanup action-repo directory
+      if: always() && steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || (inputs.dep_scan != 'off' && inputs.dep_scan != 'false'))
+      shell: bash
+      run: |
+        set -e
+        if [ -d "${GITHUB_WORKSPACE}/action-repo" ]; then
+          rm -rf "${GITHUB_WORKSPACE}/action-repo"
+          echo "✅ Cleaned up action-repo directory"
+        fi
 
     # If triggered and (dep or supply) enabled: run analysis tools
     - name: Run Knip for dependency and export analysis
@@ -302,17 +316,13 @@ runs:
           # If dep_scan is 'warn', don't fail the workflow
           if [ "${{ inputs.dep_scan }}" = "warn" ]; then
             echo "⚠️  Running in warn mode - workflow will continue"
+            # Don't print success message when warnings were found
           else
             # dep_scan is 'error' or 'true' - fail the workflow
             exit $KNIP_EXIT_CODE
           fi
         else
           echo "✅ Knip analysis complete - no unused dependencies or exports found"
-        fi
-
-        # Clean up action-repo directory - no longer needed after installing packages and copying config
-        if [ -d "${GITHUB_WORKSPACE}/action-repo" ]; then
-          rm -rf "${GITHUB_WORKSPACE}/action-repo"
         fi
 
     # Fix - Clone for action.yml and other verifications
