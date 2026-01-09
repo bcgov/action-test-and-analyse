@@ -119,16 +119,16 @@ runs:
 
     # Checkout action repository for dependencies (if either tool is needed)
     - name: Checkout action repository for dependencies
-      if: steps.diff.outputs.triggered == 'true' && (inputs.supply_scan == 'true' || inputs.dep_scan != 'off' && inputs.dep_scan != 'false')
+      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || (inputs.dep_scan != 'off' && inputs.dep_scan != 'false'))
       uses: actions/checkout@v6
       with:
-        repository: ${{ github.repository }}
-        ref: ${{ github.ref }}
+        repository: bcgov/action-test-and-analyse
+        ref: ${{ github.action_ref }}
         path: action-repo
 
     # Install packages globally from package.json
     - name: Install packages globally from package.json
-      if: steps.diff.outputs.triggered == 'true' && (inputs.supply_scan == 'true' || inputs.dep_scan != 'off' && inputs.dep_scan != 'false')
+      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || (inputs.dep_scan != 'off' && inputs.dep_scan != 'false'))
       shell: bash
       run: |
         set -e
@@ -144,7 +144,11 @@ runs:
         echo "🌐 Installing packages globally from package.json..."
 
         if [ "${{ inputs.supply_scan }}" = "true" ]; then
-          SAFE_CHAIN_VERSION=$(jq -r '.dependencies["@aikidosec/safe-chain"]' package.json | sed 's/[\^~]//')
+          SAFE_CHAIN_VERSION=$(jq -r '.dependencies["@aikidosec/safe-chain"] // empty' package.json | sed 's/[\^~]//')
+          if [ -z "$SAFE_CHAIN_VERSION" ]; then
+            echo "❌ @aikidosec/safe-chain not found in package.json"
+            exit 1
+          fi
           echo "  Installing @aikidosec/safe-chain@$SAFE_CHAIN_VERSION..."
           if ! npm install -g "@aikidosec/safe-chain@$SAFE_CHAIN_VERSION"; then
             echo "❌ Failed to install @aikidosec/safe-chain globally"
@@ -154,7 +158,11 @@ runs:
         fi
 
         if [ "${{ inputs.dep_scan }}" != "off" ] && [ "${{ inputs.dep_scan }}" != "false" ]; then
-          KNIP_VERSION=$(jq -r '.dependencies["knip"]' package.json | sed 's/[\^~]//')
+          KNIP_VERSION=$(jq -r '.dependencies["knip"] // empty' package.json | sed 's/[\^~]//')
+          if [ -z "$KNIP_VERSION" ]; then
+            echo "❌ knip not found in package.json"
+            exit 1
+          fi
           echo "  Installing knip@$KNIP_VERSION..."
           if ! npm install -g "knip@$KNIP_VERSION"; then
             echo "❌ Failed to install knip globally"
