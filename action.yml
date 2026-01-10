@@ -204,7 +204,6 @@ runs:
           
           if [ "$UNUSED_FILES" != "0" ] || [ "$UNUSED_DEPS" != "0" ] || [ "$UNUSED_DEV_DEPS" != "0" ] || [ "$UNUSED_EXPORTS" != "0" ]; then
             
-            
             # Create annotations for unused files
             if [ "$UNUSED_FILES" != "0" ]; then
               jq -r '.files[]? | "::warning file=\(.),line=1::Unused file: \(.)"' knip-output.json 2>/dev/null || true
