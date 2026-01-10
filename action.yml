@@ -164,28 +164,29 @@ runs:
       shell: bash
       run: |
         # Run Knip for dependency and export analysis
+        set -e
         cd "${{ github.workspace }}/${{ inputs.dir }}"
 
         # Set config file (suppress hints when using default config)
         if [ -n "${{ inputs.knip_config }}" ]; then
-          KNIP_CONFIG="${{ github.workspace }}/${{ inputs.knip_config }} --no-config-hints"
+          KNIP_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
         else
-          KNIP_CONFIG="${{ runner.temp }}/.knip.json"
+          KNIP_CONFIG="--config=${{ runner.temp }}/.knip.json --no-config-hints"
         fi
 
-        # Run knip and capture exit code
-        set +e
-        knip --dependencies --exports ${KNIP_CONFIG}
-        KNIP_EXIT_CODE=$?
-        set -e
-
-        if [ $KNIP_EXIT_CODE -ne 0 ] && [ "${{ inputs.dep_scan }}" = "warn" ]; then
-          echo "⚠️  Knip found issues but running in warn mode - workflow will continue"
-          exit 0
-        fi
-
-        if [ $KNIP_EXIT_CODE -ne 0 ]; then
-          exit $KNIP_EXIT_CODE
+        # Run knip and handle result
+        if knip --dependencies --exports ${KNIP_CONFIG}; then
+          echo "✅ Knip analysis complete - no unused dependencies or exports found"
+        else
+          KNIP_EXIT_CODE=$?
+          echo "⚠️  Knip found issues"
+          if [ "${{ inputs.dep_scan }}" = "warn" ]; then
+            echo "Running in warn mode - workflow will continue"
+            exit 0
+          else
+            echo "Running in error mode - workflow will exit"
+            exit $KNIP_EXIT_CODE
+          fi
         fi
 
     # Fix - Clone for action.yml and other verifications
