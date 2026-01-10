@@ -103,11 +103,12 @@ runs:
         diff_branch: ${{ inputs.diff_branch }}
 
     # If triggered and (dep or supply) enabled: prepare tools first
-    # Checkout action repository for dependencies (no repository/ref specified = current repo at current commit)
+    # Checkout action repository for dependencies
     - name: Checkout action repository for dependencies
       if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || inputs.dep_scan != 'off')
       uses: actions/checkout@v6
       with:
+        repository: ${{ github.repository }}
         path: action-repo
 
     # Install packages globally from package.json
