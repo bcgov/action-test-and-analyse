@@ -269,11 +269,11 @@ runs:
               echo ""
             fi
             
-            # Full detailed output with hints
+            # Full detailed output with hints (strip ANSI escape codes)
             echo "### 📋 Full Output"
             echo "\`\`\`"
             if [ -f knip-summary.txt ]; then
-              cat knip-summary.txt
+              sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' knip-summary.txt
             fi
             echo "\`\`\`"
             echo ""
