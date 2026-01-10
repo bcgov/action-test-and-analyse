@@ -188,16 +188,6 @@ runs:
         args: >
           ${{ inputs.sonar_args }}
 
-    # Clean up action-repo directory - no longer needed after installing packages and copying config
-    - name: Cleanup action-repo directory
-      if: always() && steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || inputs.dep_scan != 'off')
-      shell: bash
-      run: |
-        set -e
-        if [ -d "${GITHUB_WORKSPACE}/action-repo" ]; then
-          rm -rf "${GITHUB_WORKSPACE}/action-repo"
-        fi
-
     # If triggered and (dep or supply) enabled: run analysis tools
     - name: Run Knip for dependency and export analysis
       if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
@@ -273,6 +263,16 @@ runs:
             # dep_scan is 'error' - fail the workflow
             exit $KNIP_EXIT_CODE
           fi
+        fi
+
+    # Clean up action-repo directory - no longer needed after installing packages and copying config
+    - name: Cleanup action-repo directory
+      if: always() && steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || inputs.dep_scan != 'off')
+      shell: bash
+      run: |
+        set -e
+        if [ -d "${GITHUB_WORKSPACE}/action-repo" ]; then
+          rm -rf "${GITHUB_WORKSPACE}/action-repo"
         fi
 
     # Fix - Clone for action.yml and other verifications
