@@ -59,7 +59,9 @@ jobs:
       - name: Enable config hints for testing
         if: matrix.dep_scan != 'off' && matrix.dep_scan != 'false'
         run: |
-          sed -i '/KNIP_HINTS_ARG.*--no-config-hints/s/--no-config-hints//g' action.yml
+          # Remove --no-config-hints from both KNIP_CONFIG and SUMMARY_CONFIG lines
+          sed -i 's/\(KNIP_CONFIG="[^"]*\) --no-config-hints/\1/g' action.yml
+          sed -i 's/\(SUMMARY_CONFIG="[^"]*\) --no-config-hints/\1/g' action.yml
       - id: action
         uses: ./
         with:

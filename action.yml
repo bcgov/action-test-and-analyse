@@ -218,12 +218,12 @@ runs:
             jq -r '.issues[]? | select(.exports != null and (.exports | length) > 0) | . as $issue | $issue.exports[]? | "::notice file=\($issue.file // "unknown"),line=\(.line // 1)::Unused export: \(.name)"' knip-output.json
           fi
           
-          # Run knip with default output for detailed summary (with hints)
-          # Build config without --no-config-hints for summary
+          # Run knip with default output for detailed summary
+          # Build config (suppress hints when using default config, same as JSON run)
           if [ -n "${{ inputs.knip_config }}" ]; then
             SUMMARY_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
           else
-            SUMMARY_CONFIG="--config=${{ runner.temp }}/.knip.json"
+            SUMMARY_CONFIG="--config=${{ runner.temp }}/.knip.json --no-config-hints"
           fi
           
           # Capture detailed output for summary
