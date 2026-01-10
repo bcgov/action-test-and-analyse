@@ -227,13 +227,19 @@ runs:
               jq -r --arg dir "${{ inputs.dir }}" '.files[]? | "::warning file=\($dir + "/" + .),line=1::Unused file"' knip-output.json
             fi
             # Create annotations for unused dependencies
-            jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.dependencies != null and (.dependencies | length) > 0) | . as $issue | $issue.dependencies[]? | "::warning file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused dependency: \(.name)"' knip-output.json
+            if [ "$UNUSED_DEPS" -ne 0 ]; then
+              jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.dependencies != null and (.dependencies | length) > 0) | . as $issue | $issue.dependencies[]? | "::warning file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused dependency: \(.name)"' knip-output.json
+            fi
             
             # Create annotations for unused devDependencies
-            jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.devDependencies != null and (.devDependencies | length) > 0) | . as $issue | $issue.devDependencies[]? | "::warning file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused devDependency: \(.name)"' knip-output.json
+            if [ "$UNUSED_DEV_DEPS" -ne 0 ]; then
+              jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.devDependencies != null and (.devDependencies | length) > 0) | . as $issue | $issue.devDependencies[]? | "::warning file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused devDependency: \(.name)"' knip-output.json
+            fi
             
             # Create annotations for unused exports
-            jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.exports != null and (.exports | length) > 0) | . as $issue | $issue.exports[]? | "::notice file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused export: \(.name)"' knip-output.json
+            if [ "$UNUSED_EXPORTS" -ne 0 ]; then
+              jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.exports != null and (.exports | length) > 0) | . as $issue | $issue.exports[]? | "::notice file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused export: \(.name)"' knip-output.json
+            fi
           fi
           
           # Run knip with default output for detailed summary (only when issues found)
@@ -264,14 +270,14 @@ runs:
             echo "| Unused exports | $UNUSED_EXPORTS |"
             echo ""
             
-            # Full detailed output with hints (strip ANSI escape codes)
-            echo "### 📋 Full Output"
-            echo "\`\`\`"
+            # Full detailed output with hints (strip ANSI escape codes) - only when generated
             if [ -f knip-summary.txt ]; then
+              echo "### 📋 Full Output"
+              echo "\`\`\`"
               sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' knip-summary.txt
+              echo "\`\`\`"
+              echo ""
             fi
-            echo "\`\`\`"
-            echo ""
             
             if [ $KNIP_EXIT_CODE -ne 0 ]; then
               echo "⚠️ **Issues found** - See annotations in the Checks tab for details"
