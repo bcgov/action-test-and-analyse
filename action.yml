@@ -13,18 +13,15 @@ inputs:
   dir:
     description: App/package directory
     required: true
-    pattern: "^[a-zA-Z0-9._/-]+$"
 
   node_version:
     description: Node version to use (e.g., '22')
     required: true
-    pattern: '^[0-9]+(\.[0-9]+)*$'
 
   ### Typical / recommended
   cache:
     description: Package manager for caching; e.g. npm, yarn, pnpm
     default: npm
-    pattern: "^(npm|yarn|pnpm)$"
 
   sonar_args:
     # https://docs.sonarcloud.io/advanced-setup/analysis-parameters/
@@ -35,7 +32,6 @@ inputs:
 
   sonar_token:
     description: Sonar token, provide unpopulated token for pre-setup (will skip)
-    pattern: "^[a-zA-Z0-9]{20,}$"
 
   triggers:
     description: Paths (array) used to trigger a build; e.g. ('./backend/' './frontend/)
@@ -43,33 +39,27 @@ inputs:
   supply_scan:
     description: Enable supply chain attack detection using @aikidosec/safe-chain (opt-in)
     default: "false"
-    pattern: "^(true|false)$"
 
   dep_scan:
     description: "Enable dependency and export analysis using Knip for JS/TS projects. Options: off (skip), warn (run but don't fail), error (run and fail on issues)"
     default: "warn"
-    pattern: "^(off|warn|error)$"
 
   knip_config:
     description: "Path to custom Knip configuration file (relative to workspace root). If not provided, uses action's default configuration"
     default: ""
-    pattern: "^(?!.*\\.\\.)[a-zA-Z0-9._/-]*$"
 
   ### Usually a bad idea / not recommended
   diff_branch:
     description: Branch to diff against
     default: ${{ github.event.repository.default_branch }}
-    pattern: "^[a-zA-Z0-9._/-]+$"
 
   repository:
     description: Non-default repository to clone (used for testing this action)
     default: ${{ github.repository }}
-    pattern: "^[a-zA-Z0-9-_]+/[a-zA-Z0-9-_]+$"
 
   branch:
     description: Non-default branch to clone (used for testing this action)
     default: ""
-    pattern: "^[a-zA-Z0-9._/-]*$"
 
 outputs:
   triggered:
@@ -110,13 +100,11 @@ runs:
       with:
         repository: bcgov/action-test-and-analyse
 
-    # Setup node and cache dir
+    # Setup node version (for tool installation, no cache yet - file doesn't exist)
     - uses: actions/setup-node@v6
       if: steps.diff.outputs.triggered == 'true'
       with:
         node-version: ${{ inputs.node_version }}
-        cache: ${{ inputs.cache }}
-        cache-dependency-path: ${{ inputs.dir }}/package-lock.json
 
     - if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
       shell: bash
@@ -140,6 +128,14 @@ runs:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.branch }}
         fetch-depth: 0
+
+    # Setup node with caching (now that package-lock.json exists)
+    - uses: actions/setup-node@v6
+      if: steps.diff.outputs.triggered == 'true'
+      with:
+        node-version: ${{ inputs.node_version }}
+        cache: ${{ inputs.cache }}
+        cache-dependency-path: ${{ inputs.dir }}/package-lock.json
 
     # Run tests, hopefully generating coverage for SonarCloud
     - if: steps.diff.outputs.triggered == 'true'
@@ -175,7 +171,7 @@ runs:
         fi
 
         # Run knip and handle result
-        if knip --dependencies --exports ${KNIP_CONFIG}; then
+        if knip --dependencies --exports "${KNIP_CONFIG}"; then
           echo "✅ Knip analysis complete - no unused dependencies or exports found"
         else
           KNIP_EXIT_CODE=$?
