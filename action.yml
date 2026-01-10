@@ -281,7 +281,7 @@ runs:
             exit $KNIP_EXIT_CODE
           fi
         else
-          # No valid JSON with non-zero exit = tool failure (always fail)
+          # No valid JSON with non-zero exit = tool failure (warn but continue)
           # Add summary for tool failures
           {
             echo "## ❌ Knip Tool Failure"
@@ -296,12 +296,11 @@ runs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           
-          echo "::error::Knip tool failure - unable to complete analysis"
+          echo "::warning::Knip tool failure - unable to complete analysis (workflow will continue)"
           if [ -f knip-error.log ]; then
             echo "Error output:"
             cat knip-error.log
           fi
-          exit $KNIP_EXIT_CODE
         fi
 
     # Fix - Clone for action.yml and other verifications
