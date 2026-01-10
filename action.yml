@@ -242,8 +242,8 @@ runs:
           USING_DEFAULT_CONFIG=true
           PROJECT_KNIP=".knip.json"
           
-          # Copy default config from the action repository
-          DEFAULT_KNIP="action-repo/.knip.json"
+          # Copy default config from the action repository (use absolute path from workspace root)
+          DEFAULT_KNIP="${{ github.workspace }}/action-repo/.knip.json"
           if [ ! -f "$DEFAULT_KNIP" ]; then
             echo "❌ Default .knip.json not found in action repository"
             exit 1
