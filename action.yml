@@ -102,14 +102,6 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         diff_branch: ${{ inputs.diff_branch }}
 
-    # Setup node and cache dir
-    - uses: actions/setup-node@v6
-      if: steps.diff.outputs.triggered == 'true'
-      with:
-        node-version: ${{ inputs.node_version }}
-        cache: ${{ inputs.cache }}
-        cache-dependency-path: ${{ inputs.dir }}/package-lock.json
-
     # If triggered and (dep or supply) enabled: prepare tools first
     # Checkout action repository for dependencies
     - name: Checkout action repository for dependencies
@@ -117,6 +109,14 @@ runs:
       uses: actions/checkout@v6
       with:
         repository: bcgov/action-test-and-analyse
+
+    # Setup node and cache dir
+    - uses: actions/setup-node@v6
+      if: steps.diff.outputs.triggered == 'true'
+      with:
+        node-version: ${{ inputs.node_version }}
+        cache: ${{ inputs.cache }}
+        cache-dependency-path: ${{ inputs.dir }}/package-lock.json
 
     - if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
       shell: bash
