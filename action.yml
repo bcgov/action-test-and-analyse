@@ -166,30 +166,25 @@ runs:
         # Run Knip for dependency and export analysis
         cd "${{ github.workspace }}/${{ inputs.dir }}"
 
-        # Set config file
+        # Set config file (suppress hints when using default config)
         if [ -n "${{ inputs.knip_config }}" ]; then
-          KNIP_CONFIG="${{ github.workspace }}/${{ inputs.knip_config }}"
+          KNIP_CONFIG="${{ github.workspace }}/${{ inputs.knip_config }} --no-config-hints"
         else
           KNIP_CONFIG="${{ runner.temp }}/.knip.json"
         fi
 
-        # Suppress configuration hints when using default config (hints are about our upstream config, not user's project)
-        KNIP_HINTS_ARG=""
-        if [ ! ${{ inputs.knip_config }} ]; then
-          KNIP_HINTS_ARG="--no-config-hints"
-        fi
-
-        # Run knip and capture exit code (temporarily disable set -e to capture exit code)
+        # Run knip and capture exit code
         set +e
-        knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"}
+        knip --dependencies --exports ${KNIP_CONFIG}
         KNIP_EXIT_CODE=$?
         set -e
 
-        if [ $KNIP_EXIT_CODE -ne 0 ]&&[ "${{ inputs.dep_scan }}" = "warn" ]; then
-            echo "⚠️  Knip found issues but running in warn mode - workflow will continue"
-            exit 0
-        else
-          # dep_scan is 'error' - fail the workflow
+        if [ $KNIP_EXIT_CODE -ne 0 ] && [ "${{ inputs.dep_scan }}" = "warn" ]; then
+          echo "⚠️  Knip found issues but running in warn mode - workflow will continue"
+          exit 0
+        fi
+
+        if [ $KNIP_EXIT_CODE -ne 0 ]; then
           exit $KNIP_EXIT_CODE
         fi
 
