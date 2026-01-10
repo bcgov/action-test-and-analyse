@@ -175,14 +175,25 @@ runs:
           KNIP_CONFIG="--config=${{ runner.temp }}/.knip.json --no-config-hints"
         fi
 
-        # Run knip with JSON output for annotations
+        # Run knip with JSON output for annotations (stderr separate to avoid corrupting JSON)
         set +e
-        knip --dependencies --exports --reporter json ${KNIP_CONFIG} > knip-output.json 2>&1
+        knip --dependencies --exports --reporter json ${KNIP_CONFIG} > knip-output.json 2> knip-error.log
         KNIP_EXIT_CODE=$?
         set -e
 
+        # Validate JSON before parsing (in case of non-JSON errors)
+        if [ "$KNIP_EXIT_CODE" -ne 0 ] && [ -f knip-output.json ]; then
+          if ! jq empty knip-output.json >/dev/null 2>&1; then
+            echo "::error::Knip failed with exit code $KNIP_EXIT_CODE and did not produce valid JSON"
+            if [ -f knip-error.log ]; then
+              cat knip-error.log
+            fi
+            exit $KNIP_EXIT_CODE
+          fi
+        fi
+
         # Parse JSON and create annotations
-        if [ -f knip-output.json ] && [ -s knip-output.json ]; then
+        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
           # Count issues
           UNUSED_FILES=$(jq -r '.files | length // 0' knip-output.json 2>/dev/null || echo "0")
           
