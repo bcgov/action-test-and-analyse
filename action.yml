@@ -234,13 +234,8 @@ runs:
           {
             echo "## 🔍 Knip Analysis Results"
             echo ""
-            echo ""
-            echo "### Detailed Output"
-            echo "```"
-            if [ -f knip-summary.txt ]; then
-              cat knip-summary.txt
-            fi
-            echo "```"
+            
+            # Summary counts
             echo "| Category | Count |"
             echo "|----------|-------|"
             echo "| Unused files | $UNUSED_FILES |"
@@ -248,6 +243,41 @@ runs:
             echo "| Unused devDependencies | $UNUSED_DEV_DEPS |"
             echo "| Unused exports | $UNUSED_EXPORTS |"
             echo ""
+            
+            # Detailed breakdown by category
+            if [ "$UNUSED_FILES" != "0" ]; then
+              echo "### 📁 Unused Files ($UNUSED_FILES)"
+              jq -r '.files[]? | "- `\(.)`"' knip-output.json | sort -u
+              echo ""
+            fi
+            
+            if [ "$UNUSED_DEPS" != "0" ]; then
+              echo "### 📦 Unused Dependencies ($UNUSED_DEPS)"
+              jq -r '[.issues[].dependencies[]?] | unique_by(.name) | .[] | "- `\(.name)`"' knip-output.json | sort -u
+              echo ""
+            fi
+            
+            if [ "$UNUSED_DEV_DEPS" != "0" ]; then
+              echo "### 🔧 Unused DevDependencies ($UNUSED_DEV_DEPS)"
+              jq -r '[.issues[].devDependencies[]?] | unique_by(.name) | .[] | "- `\(.name)`"' knip-output.json | sort -u
+              echo ""
+            fi
+            
+            if [ "$UNUSED_EXPORTS" != "0" ]; then
+              echo "### 📤 Unused Exports ($UNUSED_EXPORTS)"
+              jq -r '[.issues[].exports[]?] | unique_by(.name) | .[] | "- `\(.name)` from `\(.file // "unknown")`"' knip-output.json | sort -u
+              echo ""
+            fi
+            
+            # Full detailed output with hints
+            echo "### 📋 Full Output"
+            echo "\`\`\`"
+            if [ -f knip-summary.txt ]; then
+              cat knip-summary.txt
+            fi
+            echo "\`\`\`"
+            echo ""
+            
             if [ $KNIP_EXIT_CODE -ne 0 ]; then
               echo "⚠️ **Issues found** - See annotations above for details"
             else
