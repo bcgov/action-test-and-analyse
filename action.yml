@@ -108,7 +108,7 @@ runs:
       if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || inputs.dep_scan != 'off')
       uses: actions/checkout@v6
       with:
-        repository: ${{ github.repository }}
+        repository: bcgov/action-test-and-analyse
         path: action-repo
 
     # Install packages globally from package.json
