@@ -13,18 +13,15 @@ inputs:
   dir:
     description: App/package directory
     required: true
-    pattern: "^[a-zA-Z0-9._/-]+$"
 
   node_version:
-    description: Node version to use (e.g., '18', '20', '22')
+    description: Node version to use (e.g., '22')
     required: true
-    pattern: '^[0-9]+(\.[0-9]+)*$'
 
   ### Typical / recommended
   cache:
     description: Package manager for caching; e.g. npm, yarn, pnpm
     default: npm
-    pattern: "^(npm|yarn|pnpm)$"
 
   sonar_args:
     # https://docs.sonarcloud.io/advanced-setup/analysis-parameters/
@@ -35,7 +32,6 @@ inputs:
 
   sonar_token:
     description: Sonar token, provide unpopulated token for pre-setup (will skip)
-    pattern: "^[a-zA-Z0-9]{20,}$"
 
   triggers:
     description: Paths (array) used to trigger a build; e.g. ('./backend/' './frontend/)
@@ -43,33 +39,27 @@ inputs:
   supply_scan:
     description: Enable supply chain attack detection using @aikidosec/safe-chain (opt-in)
     default: "false"
-    pattern: "^(true|false)$"
 
   dep_scan:
-    description: "Enable dependency and export analysis using Knip for JS/TS projects. Options: off/false (skip), warn (run but don't fail), error/true (run and fail on issues)"
+    description: "Enable dependency and export analysis using Knip for JS/TS projects. Options: off (skip), warn (run but don't fail), error (run and fail on issues)"
     default: "warn"
-    pattern: "^(off|false|warn|error|true)$"
 
   knip_config:
     description: "Path to custom Knip configuration file (relative to workspace root). If not provided, uses action's default configuration"
     default: ""
-    pattern: "^(?!.*\\.\\.)[a-zA-Z0-9._/-]*$"
 
   ### Usually a bad idea / not recommended
   diff_branch:
     description: Branch to diff against
     default: ${{ github.event.repository.default_branch }}
-    pattern: "^[a-zA-Z0-9._/-]+$"
 
   repository:
     description: Non-default repository to clone (used for testing this action)
     default: ${{ github.repository }}
-    pattern: "^[a-zA-Z0-9-_]+/[a-zA-Z0-9-_]+$"
 
   branch:
     description: Non-default branch to clone (used for testing this action)
     default: ""
-    pattern: "^[a-zA-Z0-9._/-]*$"
 
 outputs:
   triggered:
@@ -102,14 +92,49 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         diff_branch: ${{ inputs.diff_branch }}
 
-    # Shallow clone is faster, but SonarCloud requires a full clone
-    - uses: actions/checkout@v6
+    # If triggered and (dep or supply) enabled: prepare tools first
+    # Checkout action repository for dependencies
+    - name: Checkout action repository for dependencies
+      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
+      uses: actions/checkout@v6
       with:
-        fetch-depth: 0
+        repository: bcgov/action-test-and-analyse
+
+    # Setup node version (for tool installation, no cache yet - file doesn't exist)
+    - uses: actions/setup-node@v6
+      if: steps.diff.outputs.triggered == 'true'
+      with:
+        node-version: ${{ inputs.node_version }}
+
+    - if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
+      shell: bash
+      run: |
+        # Setup safe-chain and/or knip
+        set -e
+
+        # Install and initialize safe-chain
+        if [ "${{ inputs.supply_scan }}" != "false" ]; then
+          SAFE_CHAIN_VERSION=$(jq -er '.dependencies["@aikidosec/safe-chain"]' package.json)
+          npm install -g "@aikidosec/safe-chain@$SAFE_CHAIN_VERSION"
+          safe-chain setup-ci
+        fi
+
+        # Install knip and copy default configuration to temporary directory
+        if [ "${{ inputs.dep_scan }}" != "off" ]; then
+          KNIP_VERSION=$(jq -er '.dependencies["knip"]' package.json)
+          npm install -g "knip@$KNIP_VERSION"
+          cp .knip.json "${{ runner.temp }}/.knip.json"
+        fi
+
+    # Checkout the target repository - SonarCloud requires a full clone
+    - uses: actions/checkout@v6
+      if: steps.diff.outputs.triggered == 'true'
+      with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.branch }}
+        fetch-depth: 0
 
-    # Setup node and cache dir
+    # Setup node with caching (now that package-lock.json exists)
     - uses: actions/setup-node@v6
       if: steps.diff.outputs.triggered == 'true'
       with:
@@ -117,140 +142,11 @@ runs:
         cache: ${{ inputs.cache }}
         cache-dependency-path: ${{ inputs.dir }}/package-lock.json
 
-    # Setup supply chain attack detection (opt-in)
-    - name: Set up supply chain attack detection
-      if: steps.diff.outputs.triggered == 'true' && inputs.supply_scan == 'true'
-      shell: bash
-      run: |
-        set -e
-        echo "🔒 Installing @aikidosec/safe-chain for supply chain attack detection..."
-        if ! npm install -g @aikidosec/safe-chain@1.1.10; then
-          echo "❌ Failed to install @aikidosec/safe-chain"
-          exit 1
-        fi
-        if ! safe-chain setup-ci; then
-          echo "❌ Failed to setup safe-chain"
-          exit 1
-        fi
-        echo "✅ Safe-chain setup complete"
-
     # Run tests, hopefully generating coverage for SonarCloud
     - if: steps.diff.outputs.triggered == 'true'
       shell: bash
       working-directory: ${{ inputs.dir }}
       run: ${{ inputs.commands }}
-
-    # Setup Knip for dependency and export analysis (opt-in)
-    - name: Run Knip for dependency and export analysis
-      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off' && inputs.dep_scan != 'false'
-      shell: bash
-      run: |
-        set -e
-        echo "🔍 Installing Knip for dependency and export analysis..."
-        if ! npm install -g knip; then
-          echo "❌ Failed to install Knip"
-          exit 1
-        fi
-
-        echo "🧹 Running Knip to check for unused dependencies and exports..."
-        cd "${{ github.workspace }}/${{ inputs.dir }}" || { echo "❌ Failed to change directory to '${{ github.workspace }}/${{ inputs.dir }}'. Please verify the 'dir' input."; exit 1; }
-
-        # Handle Knip configuration
-        KNIP_CONFIG_ARG=""
-
-        if [ -n "${{ inputs.knip_config }}" ]; then
-          # User provided a custom config path - validate it exists
-          CUSTOM_CONFIG="${{ github.workspace }}/${{ inputs.knip_config }}"
-          
-          # Ensure resolved path is within workspace
-          CUSTOM_CONFIG_ABS=$(realpath "$CUSTOM_CONFIG" 2>/dev/null || echo "")
-          WORKSPACE_ABS=$(realpath "${{ github.workspace }}" 2>/dev/null || echo "")
-          if [ -z "$CUSTOM_CONFIG_ABS" ] || [ -z "$WORKSPACE_ABS" ]; then
-            echo "❌ Invalid knip_config path: unable to resolve absolute path"
-            exit 1
-          fi
-          if [ "${CUSTOM_CONFIG_ABS#$WORKSPACE_ABS}" = "$CUSTOM_CONFIG_ABS" ]; then
-            echo "❌ Invalid knip_config path: must be within workspace"
-            exit 1
-          fi
-          
-          if [ -f "$CUSTOM_CONFIG" ]; then
-            KNIP_CONFIG_ARG="--config=$CUSTOM_CONFIG"
-            echo "✅ Using custom Knip config from ${{ inputs.knip_config }}"
-          else
-            echo "❌ Custom Knip config not found at $CUSTOM_CONFIG"
-            echo "   Please verify the 'knip_config' input path and ensure the file exists."
-            exit 1
-          fi
-        fi
-
-        USING_DEFAULT_CONFIG=false
-
-        if [ -z "$KNIP_CONFIG_ARG" ]; then
-          # No custom config provided - use action's default
-          # Note: This will overwrite any existing .knip.json in the project directory
-          echo "ℹ️ Using action's default Knip configuration..."
-          USING_DEFAULT_CONFIG=true
-          PROJECT_KNIP=".knip.json"
-          
-          # Try to find the default config from the action
-          DEFAULT_KNIP=""
-          if [ -f "${{ github.action_path }}/.knip.json" ]; then
-            DEFAULT_KNIP="${{ github.action_path }}/.knip.json"
-          fi
-          
-          # If file not found, create default config inline
-          if [ -z "$DEFAULT_KNIP" ] || [ ! -f "$DEFAULT_KNIP" ]; then
-            echo "📝 Creating default .knip.json with common exceptions..."
-            # Use multiline string for better readability and maintainability
-            DEFAULT_KNIP_JSON='{
-              "ignoreDependencies": [
-                "swagger-ui-express",
-                "rimraf",
-                "@types/node",
-                "@types/react",
-                "@types/react-dom"
-              ],
-              "ignoreBinaries": [
-                "rimraf"
-              ]
-            }'
-            echo "$DEFAULT_KNIP_JSON" > "$PROJECT_KNIP"
-            echo "✅ Applied default .knip.json with common exceptions"
-          else
-            cp "$DEFAULT_KNIP" "$PROJECT_KNIP"
-            echo "✅ Applied default .knip.json with common exceptions"
-          fi
-        fi
-
-        # Suppress configuration hints when using default config (hints are about our upstream config, not user's project)
-        # Note: Test workflow uses sed to remove this flag to verify hints work
-        KNIP_HINTS_ARG=""
-        if [ "$USING_DEFAULT_CONFIG" = "true" ]; then
-          KNIP_HINTS_ARG="--no-config-hints"
-        fi
-
-        # Run knip and capture exit code (temporarily disable set -e to capture exit code)
-        set +e
-        knip --dependencies --exports ${KNIP_CONFIG_ARG:+"$KNIP_CONFIG_ARG"} ${KNIP_HINTS_ARG:+"$KNIP_HINTS_ARG"}
-        KNIP_EXIT_CODE=$?
-        set -e
-
-        if [ $KNIP_EXIT_CODE -ne 0 ]; then
-          echo ""
-          echo "⚠️  Knip found unused dependencies or exports"
-          echo "ℹ️  Review the output above to clean up your project"
-          
-          # If dep_scan is 'warn', don't fail the workflow
-          if [ "${{ inputs.dep_scan }}" = "warn" ]; then
-            echo "⚠️  Running in warn mode - workflow will continue"
-            exit 0
-          else
-            # dep_scan is 'error' or 'true' - fail the workflow
-            exit $KNIP_EXIT_CODE
-          fi
-        fi
-        echo "✅ Knip analysis complete - no unused dependencies or exports found"
 
     ### Optional SonarCloud
 
@@ -263,6 +159,36 @@ runs:
         projectBaseDir: ${{ inputs.dir }}
         args: >
           ${{ inputs.sonar_args }}
+
+    # If triggered and (dep or supply) enabled: run analysis tools
+    - if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
+      shell: bash
+      run: |
+        # Run Knip for dependency and export analysis
+        set -e
+        cd "${{ github.workspace }}/${{ inputs.dir }}"
+
+        # Set config file (suppress hints when using default config)
+        if [ -n "${{ inputs.knip_config }}" ]; then
+          KNIP_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
+        else
+          KNIP_CONFIG="--config=${{ runner.temp }}/.knip.json --no-config-hints"
+        fi
+
+        # Run knip and handle result
+        if knip --dependencies --exports ${KNIP_CONFIG}; then
+          echo "✅ Knip analysis complete - no unused dependencies or exports found"
+        else
+          KNIP_EXIT_CODE=$?
+          echo "⚠️  Knip found issues"
+          if [ "${{ inputs.dep_scan }}" = "warn" ]; then
+            echo "Running in warn mode - workflow will continue"
+            exit 0
+          else
+            echo "Running in error mode - workflow will exit"
+            exit $KNIP_EXIT_CODE
+          fi
+        fi
 
     # Fix - Clone for action.yml and other verifications
     - name: Checkout Action repo to pass tests
