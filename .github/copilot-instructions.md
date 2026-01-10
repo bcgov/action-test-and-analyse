@@ -138,7 +138,9 @@ This is a GitHub Actions composite action, so testing is done through workflow e
 ### npm Packages (versions read from package.json)
 - `@aikidosec/safe-chain` - For supply chain scanning (opt-in, installed globally)
 - `knip` - For dependency/export analysis (opt-in, installed globally)
-- `jq` - For JSON parsing (system tool, required)
+
+### System Tools
+- `jq` - For JSON parsing (system tool, available on GitHub-hosted runners)
 
 ## Renovate Configuration
 
