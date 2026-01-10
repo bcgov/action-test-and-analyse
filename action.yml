@@ -262,9 +262,16 @@ runs:
         fi
 
         # Handle result
+        # Check if we have valid JSON to distinguish tool failures from analysis results
+        HAS_VALID_JSON=false
+        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
+          HAS_VALID_JSON=true
+        fi
+        
         if [ $KNIP_EXIT_CODE -eq 0 ]; then
           echo "✅ Knip analysis complete - no unused dependencies or exports found"
-        else
+        elif [ "$HAS_VALID_JSON" = "true" ]; then
+          # Valid JSON with non-zero exit = analysis found issues (respect warn/error mode)
           echo "⚠️  Knip found issues"
           if [ "${{ inputs.dep_scan }}" = "warn" ]; then
             echo "Running in warn mode - workflow will continue"
@@ -273,6 +280,28 @@ runs:
             echo "Running in error mode - workflow will exit"
             exit $KNIP_EXIT_CODE
           fi
+        else
+          # No valid JSON with non-zero exit = tool failure (always fail)
+          # Add summary for tool failures
+          {
+            echo "## ❌ Knip Tool Failure"
+            echo ""
+            echo "Knip was unable to complete the analysis. This indicates a tool failure, not analysis results."
+            echo ""
+            if [ -f knip-error.log ]; then
+              echo "### Error Output"
+              echo "\`\`\`"
+              cat knip-error.log
+              echo "\`\`\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          
+          echo "::error::Knip tool failure - unable to complete analysis"
+          if [ -f knip-error.log ]; then
+            echo "Error output:"
+            cat knip-error.log
+          fi
+          exit $KNIP_EXIT_CODE
         fi
 
     # Fix - Clone for action.yml and other verifications
