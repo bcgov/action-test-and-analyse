@@ -4,7 +4,7 @@ This file contains instructions for GitHub Copilot when working on this reposito
 
 ## Project Overview
 
-This is a GitHub Actions composite action for running tests and code analysis with SonarCloud integration. It supports Node.js projects and includes optional supply chain attack detection.
+This is a GitHub Actions composite action for running tests and code analysis with SonarCloud integration. It supports Node.js projects and includes optional supply chain attack detection and dependency/export analysis.
 
 ## Technology Stack
 
@@ -14,6 +14,7 @@ This is a GitHub Actions composite action for running tests and code analysis wi
 - **Package Managers**: npm, yarn, pnpm
 - **Integration Tools**:
   - SonarCloud for code quality analysis
+  - Knip for dependency and export analysis (opt-in)
   - @aikidosec/safe-chain for supply chain scanning (opt-in)
   - bcgov/action-diff-triggers for conditional execution
 
@@ -34,6 +35,8 @@ This is a GitHub Actions composite action, so testing is done through workflow e
 - `action.yml` - Main composite action definition
 - `README.md` - User documentation with usage examples
 - `.github/workflows/tests.yml` - Test workflow
+- `.knip.json` - Default Knip configuration for dependency analysis
+- `package.json` - Defines versions for `knip` and `@aikidosec/safe-chain`
 
 ## Development Guidelines
 
@@ -63,9 +66,20 @@ This is a GitHub Actions composite action, so testing is done through workflow e
 
 ### Supply Chain Scanning
 - Feature is opt-in only (default: `false`)
-- Uses `@aikidosec/safe-chain@1.1.10` for scanning
+- Uses `@aikidosec/safe-chain` - version read dynamically from `package.json`
+- Installed globally and initialized with `safe-chain setup-ci`
 - Must run before package installation commands
 - Should fail workflow if threats detected
+
+### Dependency Analysis (Knip)
+- Feature is opt-in via `dep_scan` input (default: `warn`)
+- Options: `off`, `warn`, `error`
+- Uses `knip` - version read dynamically from `package.json`
+- Analyzes unused dependencies, devDependencies, and exports
+- Creates GitHub Actions annotations and step summary
+- Default config provided, or users can provide custom `knip_config`
+- Configuration hints suppressed for default config (users can't control it)
+- Tool failures warn but continue (don't block user tests)
 
 ### Triggers and Conditional Execution
 - Uses `bcgov/action-diff-triggers` for path-based triggering
@@ -109,14 +123,24 @@ This is a GitHub Actions composite action, so testing is done through workflow e
 - Test with and without SonarCloud integration
 - Test trigger behavior on pull requests vs. push to main
 - Verify supply chain scanning when enabled
+- Test Knip analysis with different `dep_scan` modes (`off`, `warn`, `error`)
+- Verify annotations appear correctly in PR checks
+- Test with default config (hints suppressed) and custom config (hints shown)
 
 ## Dependencies
 
+### GitHub Actions
 - `actions/checkout@v6` - For repository cloning
 - `actions/setup-node@v6` - For Node.js setup and caching
-- `bcgov/action-diff-triggers` - For conditional execution
-- `SonarSource/sonarqube-scan-action@v6.0.0` - For SonarCloud integration
-- `@aikidosec/safe-chain@1.1.10` - For supply chain scanning (opt-in)
+- `bcgov/action-diff-triggers` - For conditional execution (pinned to SHA)
+- `SonarSource/sonarqube-scan-action@v7.0.0` - For SonarCloud integration (pinned to SHA)
+
+### npm Packages (versions read from package.json)
+- `@aikidosec/safe-chain` - For supply chain scanning (opt-in, installed globally)
+- `knip` - For dependency/export analysis (opt-in, installed globally)
+
+### System Tools
+- `jq` - For JSON parsing (system tool, available on GitHub-hosted runners)
 
 ## Renovate Configuration
 
