@@ -244,31 +244,6 @@ runs:
             echo "| Unused exports | $UNUSED_EXPORTS |"
             echo ""
             
-            # Detailed breakdown by category
-            if [ "$UNUSED_FILES" != "0" ]; then
-              echo "### 📁 Unused Files ($UNUSED_FILES)"
-              jq -r '.files[]? | "- `\(.)`"' knip-output.json | sort -u
-              echo ""
-            fi
-            
-            if [ "$UNUSED_DEPS" != "0" ]; then
-              echo "### 📦 Unused Dependencies ($UNUSED_DEPS)"
-              jq -r '[.issues[].dependencies[]?] | unique_by(.name) | .[] | "- `\(.name)`"' knip-output.json | sort -u
-              echo ""
-            fi
-            
-            if [ "$UNUSED_DEV_DEPS" != "0" ]; then
-              echo "### 🔧 Unused DevDependencies ($UNUSED_DEV_DEPS)"
-              jq -r '[.issues[].devDependencies[]?] | unique_by(.name) | .[] | "- `\(.name)`"' knip-output.json | sort -u
-              echo ""
-            fi
-            
-            if [ "$UNUSED_EXPORTS" != "0" ]; then
-              echo "### 📤 Unused Exports ($UNUSED_EXPORTS)"
-              jq -r '[.issues[].exports[]?] | unique_by(.name) | .[] | "- `\(.name)` from `\(.file // "unknown")`"' knip-output.json | sort -u
-              echo ""
-            fi
-            
             # Full detailed output with hints (strip ANSI escape codes)
             echo "### 📋 Full Output"
             echo "\`\`\`"
