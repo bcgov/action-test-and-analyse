@@ -202,8 +202,13 @@ runs:
           UNUSED_DEV_DEPS=$(jq -r '[.issues[].devDependencies[]?] | length' knip-output.json 2>/dev/null || echo "0")
           UNUSED_EXPORTS=$(jq -r '[.issues[].exports[]?] | length' knip-output.json 2>/dev/null || echo "0")
           
-          if [ "$UNUSED_DEPS" != "0" ] || [ "$UNUSED_DEV_DEPS" != "0" ] || [ "$UNUSED_EXPORTS" != "0" ]; then
+          if [ "$UNUSED_FILES" != "0" ] || [ "$UNUSED_DEPS" != "0" ] || [ "$UNUSED_DEV_DEPS" != "0" ] || [ "$UNUSED_EXPORTS" != "0" ]; then
             
+            
+            # Create annotations for unused files
+            if [ "$UNUSED_FILES" != "0" ]; then
+              jq -r '.files[]? | "::warning file=\(.),line=1::Unused file: \(.)"' knip-output.json 2>/dev/null || true
+            fi
             # Create annotations for unused dependencies
             jq -r '.issues[]? | select(.dependencies != null and (.dependencies | length) > 0) | . as $issue | $issue.dependencies[]? | "::warning file=\($issue.file // "package.json"),line=\(.line // 1)::Unused dependency: \(.name)"' knip-output.json 2>/dev/null || true
             
