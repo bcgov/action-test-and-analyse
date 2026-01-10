@@ -265,16 +265,6 @@ runs:
           fi
         fi
 
-    # Clean up action-repo directory - no longer needed after installing packages and copying config
-    - name: Cleanup action-repo directory
-      if: always() && steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan == 'true') || inputs.dep_scan != 'off')
-      shell: bash
-      run: |
-        set -e
-        if [ -d "${GITHUB_WORKSPACE}/action-repo" ]; then
-          rm -rf "${GITHUB_WORKSPACE}/action-repo"
-        fi
-
     # Fix - Clone for action.yml and other verifications
     - name: Checkout Action repo to pass tests
       if: always() && inputs.repository != github.repository
