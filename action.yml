@@ -109,17 +109,22 @@ runs:
     - if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
       shell: bash
       run: |
-        # Setup safe-chain and knip
-        SAFE_CHAIN_VERSION=$(jq -r '.dependencies["@aikidosec/safe-chain"] // empty' package.json)
-        KNIP_VERSION=$(jq -r '.dependencies["knip"] // empty' package.json)
+        # Setup safe-chain and/or knip
+        set -e
 
         # Install and initialize safe-chain
-        npm install -g "@aikidosec/safe-chain@$SAFE_CHAIN_VERSION"
-        safe-chain setup-ci
+        if [ "${{ inputs.supply_scan }}" != "false" ]; then
+          SAFE_CHAIN_VERSION=$(jq -er '.dependencies["@aikidosec/safe-chain"]' package.json)
+          npm install -g "@aikidosec/safe-chain@$SAFE_CHAIN_VERSION"
+          safe-chain setup-ci
+        fi
 
         # Install knip and copy default configuration to temporary directory
-        npm install -g "knip@$KNIP_VERSION"
-        cp .knip.json "${{ runner.temp }}/.knip.json"
+        if [ "${{ inputs.dep_scan }}" != "off" ]; then
+          KNIP_VERSION=$(jq -er '.dependencies["knip"]' package.json)
+          npm install -g "knip@$KNIP_VERSION"
+          cp .knip.json "${{ runner.temp }}/.knip.json"
+        fi
 
     # Checkout the target repository - SonarCloud requires a full clone
     - uses: actions/checkout@v6
@@ -171,7 +176,7 @@ runs:
         fi
 
         # Run knip and handle result
-        if knip --dependencies --exports "${KNIP_CONFIG}"; then
+        if knip --dependencies --exports ${KNIP_CONFIG}; then
           echo "✅ Knip analysis complete - no unused dependencies or exports found"
         else
           KNIP_EXIT_CODE=$?
