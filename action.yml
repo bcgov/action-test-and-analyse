@@ -167,6 +167,9 @@ runs:
         # Run Knip for dependency and export analysis
         set -e
         cd "${{ github.workspace }}/${{ inputs.dir }}"
+        
+        # Clean up any previous Knip output files
+        rm -f knip-output.json knip-error.log knip-summary.txt
 
         # Set config file (suppress hints when using default config)
         if [ -n "${{ inputs.knip_config }}" ]; then
@@ -215,7 +218,7 @@ runs:
             jq -r '.issues[]? | select(.devDependencies != null and (.devDependencies | length) > 0) | . as $issue | $issue.devDependencies[]? | "::warning file=\($issue.file // "package.json"),line=\(.line // 1)::Unused devDependency: \(.name)"' knip-output.json
             
             # Create annotations for unused exports
-            jq -r '.issues[]? | select(.exports != null and (.exports | length) > 0) | . as $issue | $issue.exports[]? | "::notice file=\($issue.file // "unknown"),line=\(.line // 1)::Unused export: \(.name)"' knip-output.json
+            jq -r '.issues[]? | select(.exports != null and (.exports | length) > 0) | . as $issue | $issue.exports[]? | "::notice file=\($issue.file // "package.json"),line=\(.line // 1)::Unused export: \(.name)"' knip-output.json
           fi
           
           # Run knip with default output for detailed summary
@@ -254,7 +257,7 @@ runs:
             echo ""
             
             if [ $KNIP_EXIT_CODE -ne 0 ]; then
-              echo "⚠️ **Issues found** - See annotations above for details"
+              echo "⚠️ **Issues found** - See annotations in the Checks tab for details"
             else
               echo "✅ **No issues found**"
             fi
