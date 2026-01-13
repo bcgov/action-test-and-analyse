@@ -4,7 +4,8 @@
     "rimraf",
     "@types/node",
     "@types/react",
-    "@types/react-dom"
+    "@types/react-dom",
+    "@testing-library/user-event"
   ],
   "ignoreBinaries": [
     "rimraf"
