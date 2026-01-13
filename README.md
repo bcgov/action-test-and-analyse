@@ -63,9 +63,10 @@ Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see ou
     triggers: ('frontend/')
 
     # Enable supply chain attack detection using @aikidosec/safe-chain
-    # Optional, defaults to false (opt-in only)
+    # Optional, defaults to true (enabled by default for security)
     # Detects and blocks malicious packages during npm ci
-    supply_scan: false
+    # Set to false to disable
+    supply_scan: true
 
     # Enable dependency and export analysis using Knip
     # Optional, defaults to warn (runs but doesn't fail)
@@ -96,7 +97,7 @@ Run tests and provide results to SonarCloud.  This is a full workflow that runs 
 
 The specified triggers will be used to decide whether this job runs tests and analysis or just exits successfully.
 
-This example demonstrates enabling both supply chain scanning (scans packages before installation) and Knip analysis (detects unused dependencies and exports).
+This example demonstrates the default behavior with supply chain scanning enabled (scans packages before installation) and Knip analysis set to error mode (detects unused dependencies and exports).
 
 Create or modify a GitHub workflow, like below.  E.g. `./github/workflows/tests.yml`
 
@@ -136,14 +137,14 @@ jobs:
             -Dsonar.organization=bcgov-nr
             -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
           sonar_token: ${{ secrets.SONAR_TOKEN }}
-          supply_scan: true
           dep_scan: error
+          # supply_scan defaults to true, so no need to specify
           triggers: ('frontend/' 'charts/frontend')
 ```
 
-# Example, Only Running Tests (No SonarCloud, No Supply Chain Scanning, No Dependency/Export Analysis), No Triggers
+# Example, Only Running Tests (No SonarCloud, Supply Chain Scanning Disabled, No Dependency/Export Analysis), No Triggers
 
-No triggers are provided so tests will always run.  SonarCloud is skipped, supply chain scanning is skipped, and dependency/export analysis is skipped.
+No triggers are provided so tests will always run.  SonarCloud is skipped, supply chain scanning is disabled, and dependency/export analysis is skipped.
 
 ```yaml
 jobs:
@@ -158,6 +159,8 @@ jobs:
             npm run test:cov
           dir: frontend
           node_version: "20"
+          supply_scan: false  # Disable supply chain scanning
+          dep_scan: off  # Disable dependency analysis
 ```
 
 # Example, Matrix / Multiple Directories with Sonar Cloud and Triggers
@@ -236,13 +239,15 @@ E.g. https://sonarcloud.io/project/configuration?id={<PROJECT>}&analysisMode=Git
 
 # Supply Chain Scanning
 
-This action supports optional supply chain attack detection using [@aikidosec/safe-chain](https://www.npmjs.com/package/@aikidosec/safe-chain). When enabled, safe-chain wraps npm commands to scan packages before installation, protecting against malicious code, typosquats, and suspicious scripts.
+This action supports supply chain attack detection using [@aikidosec/safe-chain](https://www.npmjs.com/package/@aikidosec/safe-chain). Supply chain scanning is **enabled by default** (default: `true`) because catching supply chain problems is critical security. When enabled, safe-chain wraps npm commands to scan packages before installation, protecting against malicious code, typosquats, and suspicious scripts.
 
-**This feature is opt-in only** (default: `false`) to maintain minimal scope and avoid unexpected behavior.
+## Default Behavior
 
-## How to Enable
+Supply chain scanning is enabled by default. No configuration is required - it will automatically scan packages during `npm ci` and other package manager commands.
 
-Set `supply_scan: true` in your workflow:
+## How to Disable
+
+If you need to disable supply chain scanning, set `supply_scan: false` in your workflow:
 
 ```yaml
 - uses: bcgov/action-test-and-analyse@x.y.z
@@ -252,7 +257,7 @@ Set `supply_scan: true` in your workflow:
       npm run test:cov
     dir: frontend
     node_version: "20"
-    supply_scan: true
+    supply_scan: false  # Disable supply chain scanning
 ```
 
 When enabled, safe-chain will:
