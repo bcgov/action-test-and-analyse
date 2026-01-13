@@ -57,7 +57,7 @@ jobs:
           echo "📦 Using Node.js version $NODE_VERSION from package.json"
       # Remove --no-config-hints for testing so we can verify configuration hints work
       - name: Enable config hints for testing
-        if: matrix.dep_scan != 'off' && matrix.dep_scan != 'false'
+        if: matrix.dep_scan != 'off'
         run: |
           # Remove --no-config-hints from both KNIP_CONFIG and SUMMARY_CONFIG lines
           sed -i 's/\(KNIP_CONFIG="[^"]*\) --no-config-hints/\1/g' action.yml

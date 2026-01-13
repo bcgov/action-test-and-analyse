@@ -266,15 +266,15 @@ No additional configuration or API tokens are required. The scanning happens aut
 
 This action supports dependency and export analysis using [Knip](https://knip.dev/). When enabled, Knip scans JavaScript/TypeScript projects to identify unused dependencies, devDependencies, and exports, helping keep your codebase clean and maintainable.
 
-**Default behavior**: Runs in `warn` mode (shows issues without failing) to encourage adoption without blocking builds. You can disable with `dep_scan: off` (or `dep_scan: false`) or enforce with `dep_scan: error` (or `dep_scan: true`).
+**Default behavior**: Runs in `warn` mode (shows issues without failing) to encourage adoption without blocking builds. You can disable with `dep_scan: off` or enforce with `dep_scan: error`.
 
 ## How to Use
 
 The `dep_scan` parameter supports three modes:
 
-- **`off` or `false`** - Skip Knip analysis entirely
+- **`off`** - Skip Knip analysis entirely
 - **`warn`** - Run Knip and show issues, but don't fail the workflow (default)
-- **`error` or `true`** - Run Knip and fail the workflow if issues are found
+- **`error`** - Run Knip and fail the workflow if issues are found
 
 ### Example: Warn Mode (Default)
 

@@ -41,7 +41,7 @@ inputs:
     default: "false"
 
   dep_scan:
-    description: "Enable dependency and export analysis using Knip for JS/TS projects. Options: off (skip), warn (run but don't fail), error (run and fail on issues)"
+    description: "Enable dependency and export analysis using Knip for JS/TS projects. Options: off (skip), warn (run but don't fail, default), error (run and fail on issues)"
     default: "warn"
 
   knip_config:
