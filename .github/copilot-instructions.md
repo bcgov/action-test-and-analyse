@@ -14,8 +14,8 @@ This is a GitHub Actions composite action for running tests and code analysis wi
 - **Package Managers**: npm, yarn, pnpm
 - **Integration Tools**:
   - SonarCloud for code quality analysis
-  - Knip for dependency and export analysis (opt-in)
-  - @aikidosec/safe-chain for supply chain scanning (opt-in)
+  - Knip for dependency and export analysis (default: warn)
+  - @aikidosec/safe-chain for supply chain scanning (default: enabled)
   - bcgov/action-diff-triggers for conditional execution
 
 ## Build and Test Commands
@@ -65,11 +65,12 @@ This is a GitHub Actions composite action, so testing is done through workflow e
 - Uses `SonarSource/sonarqube-scan-action`
 
 ### Supply Chain Scanning
-- Feature is opt-in only (default: `false`)
+- Feature is enabled by default (default: `true`) for security
 - Uses `@aikidosec/safe-chain` - version read dynamically from `package.json`
 - Installed globally and initialized with `safe-chain setup-ci`
 - Must run before package installation commands
 - Should fail workflow if threats detected
+- Users can disable by setting `supply_scan: false`
 
 ### Dependency Analysis (Knip)
 - Feature is opt-in via `dep_scan` input (default: `warn`)
@@ -112,7 +113,7 @@ This is a GitHub Actions composite action, so testing is done through workflow e
 
 - Never commit tokens or secrets
 - Use input validation patterns to prevent injection
-- Supply chain scanning is opt-in to avoid unexpected behavior
+- Supply chain scanning is enabled by default for security (users can disable if needed)
 - Token validation patterns: `^[a-zA-Z0-9]{20,}$`
 - Path validation to prevent directory traversal
 
@@ -136,8 +137,8 @@ This is a GitHub Actions composite action, so testing is done through workflow e
 - `SonarSource/sonarqube-scan-action@v7.0.0` - For SonarCloud integration (pinned to SHA)
 
 ### npm Packages (versions read from package.json)
-- `@aikidosec/safe-chain` - For supply chain scanning (opt-in, installed globally)
-- `knip` - For dependency/export analysis (opt-in, installed globally)
+- `@aikidosec/safe-chain` - For supply chain scanning (enabled by default, installed globally)
+- `knip` - For dependency/export analysis (warn mode by default, installed globally)
 
 ### System Tools
 - `jq` - For JSON parsing (system tool, available on GitHub-hosted runners)
