@@ -49,6 +49,22 @@ jobs:
             dep_scan: error
     steps:
       - uses: actions/checkout@v6
+      - name: Resolve branch ref
+        id: branch
+        run: |
+          REF="${{ github.head_ref || github.ref_name }}"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+          echo "📌 Testing action at bcgov/action-test-and-analyse@${REF}"
+      - name: Pre-check - verify remote action accessible
+        run: |
+          set -e
+          REF="${{ steps.branch.outputs.ref }}"
+          echo "Verifying refs/heads/${REF} exists on ${{ github.repository }}..."
+          if ! git ls-remote --exit-code --heads "https://github.com/${{ github.repository }}.git" "refs/heads/${REF}" > /dev/null 2>&1; then
+            echo "::error::Remote action not accessible: ref refs/heads/${REF} not found or repo unavailable. Check branch exists and GitHub is reachable."
+            exit 1
+          fi
+          echo "✅ Remote action accessible at refs/heads/${REF}"
       # Read Node.js version from package.json
       - name: Get Node.js version from package.json
         id: node-version
@@ -61,15 +77,8 @@ jobs:
           fi
           echo "node_version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "📦 Using Node.js version $NODE_VERSION from package.json"
-      # Remove --no-config-hints for testing so we can verify configuration hints work
-      - name: Enable config hints for testing
-        if: matrix.dep_scan != 'off'
-        run: |
-          # Remove --no-config-hints from both KNIP_CONFIG and SUMMARY_CONFIG lines
-          sed -i 's/\(KNIP_CONFIG="[^"]*\) --no-config-hints/\1/g' action.yml
-          sed -i 's/\(SUMMARY_CONFIG="[^"]*\) --no-config-hints/\1/g' action.yml
       - id: action
-        uses: ./
+        uses: bcgov/action-test-and-analyse@${{ steps.branch.outputs.ref }}
         with:
           commands: |
             npm ci
