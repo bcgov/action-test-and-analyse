@@ -42,17 +42,6 @@ jobs:
             dep_scan: error
     steps:
       - uses: actions/checkout@v6
-      - name: Pre-check - verify remote action accessible
-        run: |
-          set -e
-          REF="${{ github.head_ref }}"
-          echo "📌 Testing action at bcgov/action-test-and-analyse@${REF}"
-          echo "Verifying refs/heads/${REF} exists on ${{ github.repository }}..."
-          if ! git ls-remote --exit-code --heads "https://github.com/${{ github.repository }}.git" "refs/heads/${REF}" > /dev/null 2>&1; then
-            echo "::error::Remote action not accessible: ref refs/heads/${REF} not found or repo unavailable. Check branch exists and GitHub is reachable."
-            exit 1
-          fi
-          echo "✅ Remote action accessible at refs/heads/${REF}"
       # Read Node.js version from package.json
       - name: Get Node.js version from package.json
         id: node-version
