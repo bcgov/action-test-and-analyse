@@ -123,6 +123,7 @@ runs:
         if [ "${{ inputs.dep_scan }}" != "off" ]; then
           KNIP_VERSION=$(node -e "console.log(require('./package.json').dependencies['knip'])")
           npm install -g "knip@$KNIP_VERSION"
+          mkdir -p "${{ runner.temp }}"
           cp .knip.json "${{ runner.temp }}/.knip.json"
         fi
 
