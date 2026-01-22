@@ -95,39 +95,25 @@ runs:
     # If triggered and (dep or supply) enabled: prepare tools first
     # Download package.json and .knip.json from GitHub raw content API
     # This is needed because github.action_path may not include all files when using branch refs
-    # Note: github.action_repository and github.action_ref are empty in composite actions
-    # Extract ref from action path or default to 'main'
     - name: Download action files
       if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
       shell: bash
       run: |
         set -e
+        # Extract ref from action path pattern: .../_actions/owner/repo/ref, default to 'main'
         ACTION_REF="main"
-        # Extract ref from action path pattern: .../_actions/owner/repo/ref
         if [[ "${{ github.action_path }}" =~ _actions/[^/]+/[^/]+/(.+) ]]; then
           ACTION_REF="${BASH_REMATCH[1]}"
         fi
-        echo "Determined action ref: $ACTION_REF from path: ${{ github.action_path }}"
         
-        # Create temp directory for action files
         ACTION_FILES_DIR="${{ runner.temp }}/action-files"
         mkdir -p "$ACTION_FILES_DIR"
         
-        # Download package.json and .knip.json from GitHub raw content API
-        echo "Downloading package.json from GitHub..."
+        # Download files from GitHub raw content API (failures are handled by fallback to action_path)
         curl -s -f -o "$ACTION_FILES_DIR/package.json" \
-          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/package.json" || {
-          echo "::warning::Failed to download package.json, will try action_path"
-          ACTION_REF=""
-        }
-        
-        if [ -n "$ACTION_REF" ]; then
-          echo "Downloading .knip.json from GitHub..."
-          curl -s -f -o "$ACTION_FILES_DIR/.knip.json" \
-            "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/.knip.json" || {
-            echo "::warning::Failed to download .knip.json"
-          }
-        fi
+          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/package.json" || true
+        curl -s -f -o "$ACTION_FILES_DIR/.knip.json" \
+          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/.knip.json" || true
         
         echo "ACTION_FILES_DIR=$ACTION_FILES_DIR" >> "$GITHUB_ENV"
 
@@ -143,24 +129,17 @@ runs:
         # Setup safe-chain and/or knip
         set -e
 
-        # Determine path to action files (use downloaded files if available, otherwise fallback to action_path)
-        # Convert to absolute paths for Node.js require()
-        ACTION_PACKAGE_JSON=""
-        ACTION_ROOT=""
+        # Determine path to action files (prefer downloaded, fallback to action_path)
         ACTION_FILES_DIR="${{ env.ACTION_FILES_DIR }}"
         
         if [ -f "$ACTION_FILES_DIR/package.json" ]; then
           ACTION_PACKAGE_JSON="$ACTION_FILES_DIR/package.json"
           ACTION_ROOT="$ACTION_FILES_DIR"
-          echo "Using downloaded action files at: $ACTION_ROOT"
         elif [ -f "${{ github.action_path }}/package.json" ]; then
           ACTION_PACKAGE_JSON="${{ github.action_path }}/package.json"
           ACTION_ROOT="${{ github.action_path }}"
-          echo "Using action_path at: $ACTION_ROOT"
         else
           echo "::error::Cannot find action package.json"
-          echo "Checked: $ACTION_FILES_DIR/package.json"
-          echo "Checked: ${{ github.action_path }}/package.json"
           exit 1
         fi
 
@@ -175,7 +154,11 @@ runs:
         if [ "${{ inputs.dep_scan }}" != "off" ]; then
           KNIP_VERSION=$(node -e "console.log(require('$ACTION_PACKAGE_JSON').dependencies['knip'])")
           npm install -g "knip@$KNIP_VERSION"
-          cp "$ACTION_ROOT/.knip.json" "${{ runner.temp }}/.knip.json"
+          if [ -f "$ACTION_ROOT/.knip.json" ]; then
+            cp "$ACTION_ROOT/.knip.json" "${{ runner.temp }}/.knip.json"
+          else
+            echo "::warning::.knip.json not found, knip will use default configuration"
+          fi
         fi
 
     # Checkout the target repository - SonarCloud requires a full clone
