@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [backend, frontend-merge, frontend-pr, knip-setup-test]
+        name: [backend, frontend-merge, frontend-pr, dependency-setup-test]
         include:
           - name: backend
             dir: backend
@@ -41,11 +41,11 @@ jobs:
             expected_triggered: true
             supply_scan: true
             dep_scan: off
-          - name: knip-setup-test
+          - name: dependency-setup-test
             dir: frontend
             triggers: ('.')
             expected_triggered: true
-            supply_scan: false
+            supply_scan: true
             dep_scan: error
     steps:
       - uses: actions/checkout@v6
@@ -124,12 +124,12 @@ jobs:
                 echo "✅ Frontend-pr job correctly triggered"
               fi
               ;;
-            "knip-setup-test")
+            "dependency-setup-test")
               if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
-                echo "❌ Knip-setup-test job should have been triggered (triggers: '.')"
+                echo "❌ Dependency-setup-test job should have been triggered (triggers: '.')"
                 exit 1
               else
-                echo "✅ Knip-setup-test job correctly triggered"
+                echo "✅ Dependency-setup-test job correctly triggered"
               fi
               ;;
           esac
@@ -137,15 +137,33 @@ jobs:
           echo "🎉 ${{ matrix.name }} trigger behavior verified correctly!"
 
       - name: Verify setup step completed successfully
-        if: steps.action.outputs.triggered == 'true' && matrix.dep_scan != 'off'
+        if: steps.action.outputs.triggered == 'true' && (matrix.supply_scan != 'false' || matrix.dep_scan != 'off')
         run: |
-          echo "🔍 Verifying setup step completed for ${{ matrix.name }}"
-          if ! command -v knip &> /dev/null; then
-            echo "❌ knip not installed - setup step may have failed"
+          echo "🔍 Verifying dependency setup completed for ${{ matrix.name }}"
+          FAILED=0
+          if [ "${{ matrix.supply_scan }}" != "false" ]; then
+            if ! command -v safe-chain &> /dev/null; then
+              echo "❌ safe-chain not installed - supply scan setup may have failed"
+              FAILED=1
+            else
+              echo "✅ safe-chain installed"
+            fi
+          fi
+          if [ "${{ matrix.dep_scan }}" != "off" ]; then
+            if ! command -v knip &> /dev/null; then
+              echo "❌ knip not installed - dep scan setup may have failed"
+              FAILED=1
+            else
+              echo "✅ knip installed"
+            fi
+            if [ ! -f "${{ runner.temp }}/.knip.json" ]; then
+              echo "❌ knip config file not found at ${{ runner.temp }}/.knip.json - setup step may have failed"
+              FAILED=1
+            else
+              echo "✅ knip config file exists"
+            fi
+          fi
+          if [ "$FAILED" -ne 0 ]; then
             exit 1
           fi
-          if [ ! -f "${{ runner.temp }}/.knip.json" ]; then
-            echo "❌ knip config file not found at ${{ runner.temp }}/.knip.json - setup step may have failed"
-            exit 1
-          fi
-          echo "✅ Setup step completed successfully - knip is installed and config file exists"
+          echo "✅ Dependency setup step completed successfully"
