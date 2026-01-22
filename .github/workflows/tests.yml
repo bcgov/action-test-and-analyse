@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  push-temp-branch:
-    name: Push to temporary-branch
+  init:
+    name: Vars and Temp Branch
     runs-on: ubuntu-24.04
     permissions:
       # Narrowed permission scope: only this job can write contents so it can push to temporary-branch.
@@ -48,7 +48,7 @@ jobs:
 
   tests:
     name: Tests
-    needs: push-temp-branch
+    needs: init
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -78,7 +78,7 @@ jobs:
             npm ci
             npm run test:cov
           dir: ${{ matrix.dir }}
-          node_version: ${{ needs.push-temp-branch.outputs.node_version }}
+          node_version: ${{ needs.init.outputs.node_version }}
           repository: bcgov/quickstart-openshift
           action_ref: temporary-branch
           sonar_args: >
