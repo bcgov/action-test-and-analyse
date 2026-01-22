@@ -4,24 +4,33 @@ name: Tests
 
 on:
   pull_request:
+  workflow_dispatch:
+    # Note: workflow_dispatch requires a PR context to work properly.
+    # Run this workflow from a PR branch for proper testing.
 
 concurrency:
-  group: ${{ github.workflow }}
+  # Use PR number for PRs (isolates each PR), ref_name for workflow_dispatch (isolates each branch)
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
-
-permissions:
-  contents: write # Needed to push temporary-branch
 
 jobs:
   push-temp-branch:
     name: Push to temporary-branch
     runs-on: ubuntu-24.04
+    permissions:
+      # Narrowed permission scope: only this job can write contents so it can push to temporary-branch.
+      # For additional hardening, consider:
+      # - Protecting the temporary-branch so that only this workflow (or a GitHub App) can push to it.
+      # - Using a GitHub App with more granular permissions instead of GITHUB_TOKEN where feasible.
+      contents: write
     outputs:
       node_version: ${{ steps.node-version.outputs.node_version }}
+      temp_branch: ${{ steps.push-temp.outputs.TEMP_BRANCH }}
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          # For PRs, use the PR head SHA (works for forks). For workflow_dispatch, use the current ref.
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
       - name: Get Node.js version from package.json
         id: node-version
         run: |
@@ -34,13 +43,23 @@ jobs:
           echo "node_version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "📦 Using Node.js version $NODE_VERSION from package.json"
       - name: Push PR head to temporary-branch for action testing
+        id: push-temp
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b temporary-branch 2>/dev/null || git checkout temporary-branch
-          git push origin temporary-branch --force
-          echo "✅ Pushed PR head (${{ github.event.pull_request.head.ref }}) to temporary-branch"
+          # Use unique branch per PR to avoid race conditions when multiple PRs test simultaneously
+          # For workflow_dispatch, use the current branch name
+          if [ -n "${{ github.event.pull_request.number }}" ]; then
+            TEMP_BRANCH="temporary-branch-${{ github.event.pull_request.number }}"
+            HEAD_REF="${{ github.event.pull_request.head.sha }}"
+          else
+            TEMP_BRANCH="temporary-branch-${GITHUB_REF#refs/heads/}"
+            HEAD_REF="${{ github.sha }}"
+          fi
+          git push origin HEAD:$TEMP_BRANCH --force
+          echo "TEMP_BRANCH=$TEMP_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "✅ Pushed head ($HEAD_REF) to $TEMP_BRANCH"
 
   tests:
     name: Tests
@@ -68,13 +87,16 @@ jobs:
             dep_scan: off
           - name: dependency-setup-test
             dir: frontend
+            # Note: Uses same triggers as frontend-merge but tests dep_scan: error mode
+            # to verify setup step runs correctly when dep_scan fails. The duplication
+            # is intentional to test both warn and error modes.
             triggers: ('.')
             expected_triggered: true
             supply_scan: true
             dep_scan: error
     steps:
       - id: action
-        uses: bcgov/action-test-and-analyse@temporary-branch
+        uses: bcgov/action-test-and-analyse@${{ needs.push-temp-branch.outputs.temp_branch }}
         with:
           commands: |
             npm ci
@@ -82,6 +104,7 @@ jobs:
           dir: ${{ matrix.dir }}
           node_version: ${{ needs.push-temp-branch.outputs.node_version }}
           repository: bcgov/quickstart-openshift
+          action_ref: ${{ needs.push-temp-branch.outputs.temp_branch }}
           sonar_args: >
             -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
@@ -101,4 +124,4 @@ jobs:
             echo "❌ ${{ matrix.name }}: expected triggered=${{ matrix.expected_triggered }}, got ${{ steps.action.outputs.triggered }}"
             exit 1
           fi
-          echo "✅ ${{ matrix.name }} trigger behavior verified correctly!"
+          echo "✅ ${{ matrix.name }}: expected triggered=${{ matrix.expected_triggered }}, got ${{ steps.action.outputs.triggered }}"

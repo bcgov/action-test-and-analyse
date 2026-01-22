@@ -61,6 +61,10 @@ inputs:
     description: Non-default branch to clone (used for testing this action)
     default: ""
 
+  action_ref:
+    description: "Ref (branch/tag/SHA) of the action repository to checkout for dependencies (package.json, .knip.json). Used when testing action changes. Defaults to action's default branch."
+    default: ""
+
 outputs:
   triggered:
     description: Whether the action was triggered based on path changes
@@ -99,6 +103,7 @@ runs:
       uses: actions/checkout@v6
       with:
         repository: bcgov/action-test-and-analyse
+        ref: ${{ inputs.action_ref }}
 
     # Setup node version (for tool installation, no cache yet - file doesn't exist)
     - uses: actions/setup-node@v6
