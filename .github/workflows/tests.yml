@@ -80,7 +80,6 @@ jobs:
           dir: ${{ matrix.dir }}
           node_version: ${{ needs.init.outputs.node_version }}
           repository: bcgov/quickstart-openshift
-          action_ref: temporary-branch
           sonar_args: >
             -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info

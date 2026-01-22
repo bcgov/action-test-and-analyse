@@ -61,10 +61,6 @@ inputs:
     description: Non-default branch to clone (used for testing this action)
     default: ""
 
-  action_ref:
-    description: "Ref (branch/tag/SHA) of the action repository to checkout for dependencies (package.json, .knip.json). Used when testing action changes. Defaults to action's default branch."
-    default: ""
-
 outputs:
   triggered:
     description: Whether the action was triggered based on path changes
@@ -97,14 +93,7 @@ runs:
         diff_branch: ${{ inputs.diff_branch }}
 
     # If triggered and (dep or supply) enabled: prepare tools first
-    # Checkout action repository for dependencies
-    - name: Checkout action repository for dependencies
-      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
-      uses: actions/checkout@v6
-      with:
-        repository: bcgov/action-test-and-analyse
-        ref: ${{ inputs.action_ref }}
-
+    # Access action's own files using github.action_path (no checkout needed)
     # Setup node version (for tool installation, no cache yet - file doesn't exist)
     - uses: actions/setup-node@v6
       if: steps.diff.outputs.triggered == 'true'
@@ -119,16 +108,16 @@ runs:
 
         # Install and initialize safe-chain
         if [ "${{ inputs.supply_scan }}" != "false" ]; then
-          SAFE_CHAIN_VERSION=$(node -e "console.log(require('./package.json').dependencies['@aikidosec/safe-chain'])")
+          SAFE_CHAIN_VERSION=$(node -e "console.log(require('${{ github.action_path }}/package.json').dependencies['@aikidosec/safe-chain'])")
           npm install -g "@aikidosec/safe-chain@$SAFE_CHAIN_VERSION"
           safe-chain setup-ci
         fi
 
         # Install knip and copy default configuration to temporary directory
         if [ "${{ inputs.dep_scan }}" != "off" ]; then
-          KNIP_VERSION=$(node -e "console.log(require('./package.json').dependencies['knip'])")
+          KNIP_VERSION=$(node -e "console.log(require('${{ github.action_path }}/package.json').dependencies['knip'])")
           npm install -g "knip@$KNIP_VERSION"
-          cp .knip.json "${{ runner.temp }}/.knip.json"
+          cp "${{ github.action_path }}/.knip.json" "${{ runner.temp }}/.knip.json"
         fi
 
     # Checkout the target repository - SonarCloud requires a full clone
