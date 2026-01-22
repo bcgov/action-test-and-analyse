@@ -13,8 +13,26 @@ permissions:
   contents: write  # Needed to push temporary-branch
 
 jobs:
+  push-temp-branch:
+    name: Push to temporary-branch
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push PR head to temporary-branch for action testing
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b temporary-branch 2>/dev/null || git checkout temporary-branch
+          git push origin temporary-branch --force
+          echo "✅ Pushed PR head (${{ github.event.pull_request.head.ref }}) to temporary-branch"
+
   tests:
     name: Tests
+    needs: push-temp-branch
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -44,17 +62,6 @@ jobs:
             dep_scan: error
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Push PR head to temporary-branch for action testing
-        run: |
-          set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b temporary-branch || git checkout temporary-branch
-          git push origin temporary-branch --force
-          echo "✅ Pushed PR head (${{ github.event.pull_request.head.ref }}) to temporary-branch"
       - name: Get Node.js version from package.json
         id: node-version
         run: |
