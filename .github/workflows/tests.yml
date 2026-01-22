@@ -54,12 +54,8 @@ jobs:
           fi
           echo "node_version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "📦 Using Node.js version $NODE_VERSION from package.json"
-
-      - id: action-target
-        run: |
-          echo "action_target=bcgov/action-test-and-analyse@${{ github.event.pull_request.head.ref }}" >> "$GITHUB_OUTPUT"
       - id: action
-        uses: ${{ steps.action-target.outputs.action_target }}
+        uses: ./
         with:
           commands: |
             npm ci
