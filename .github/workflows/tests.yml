@@ -13,6 +13,8 @@ jobs:
   tests:
     name: Tests
     runs-on: ubuntu-24.04
+    env:
+      ACTION_TARGET: bcgov/action-test-and-analyse@${{ github.event.pull_request.head.ref }}
     strategy:
       matrix:
         name: [backend, frontend-merge, frontend-pr, dependency-setup-test]
@@ -55,7 +57,7 @@ jobs:
           echo "node_version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "📦 Using Node.js version $NODE_VERSION from package.json"
       - id: action
-        uses: bcgov/action-test-and-analyse@${{ github.event.pull_request.head.ref }}
+        uses: ${{ env.ACTION_TARGET }}
         with:
           commands: |
             npm ci
