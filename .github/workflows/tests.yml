@@ -1,24 +1,57 @@
+# PR tests: push PR head to temporary-branch, then test action at that literal ref.
+# Concurrency prevents collisions. Tests action as consumed (branch-based).
 name: Tests
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - ".github/**"
-      - "**.md"
-  workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Use PR number to isolate each PR's test runs while allowing parallel PRs
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-permissions: {}
-
 jobs:
+  init:
+    name: Vars and Temp Branch
+    runs-on: ubuntu-24.04
+    permissions:
+      # Narrowed permission scope: only this job can write contents so it can push to temporary-branch.
+      # For additional hardening, consider:
+      # - Protecting the temporary-branch so that only this workflow (or a GitHub App) can push to it.
+      # - Using a GitHub App with more granular permissions instead of GITHUB_TOKEN where feasible.
+      contents: write
+    outputs:
+      node_version: ${{ steps.node-version.outputs.node_version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Use PR head SHA (works for forks)
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Get Node.js version from package.json
+        id: node-version
+        run: |
+          set -e
+          NODE_VERSION=$(jq -r '.engines.node // empty' package.json | sed 's/>=//' | cut -d. -f1)
+          if [ -z "$NODE_VERSION" ]; then
+            echo "❌ engines.node not found in package.json"
+            exit 1
+          fi
+          echo "node_version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "📦 Using Node.js version $NODE_VERSION from package.json"
+      - name: Push PR head to temporary-branch for action testing
+        run: |
+          set -e
+          # Note: Fork PRs will fail here due to GITHUB_TOKEN write permission limitations.
+          # This workflow only works for same-repository PRs.
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Concurrency group ensures only one PR pushes to temporary-branch at a time
+          git push origin HEAD:temporary-branch --force
+          echo "✅ Pushed PR head (${{ github.event.pull_request.head.sha }}) to temporary-branch"
+
   tests:
     name: Tests
+    needs: init
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -34,7 +67,6 @@ jobs:
             dir: frontend
             triggers: ('.')
             expected_triggered: true
-            # supply_scan: false - purposefully commented out to verify defaults
             dep_scan: warn
           - name: frontend-pr
             dir: frontend
@@ -42,34 +74,14 @@ jobs:
             supply_scan: true
             dep_scan: off
     steps:
-      - uses: actions/checkout@v6
-      # Read Node.js version from package.json
-      - name: Get Node.js version from package.json
-        id: node-version
-        run: |
-          set -e
-          NODE_VERSION=$(jq -r '.engines.node // empty' package.json | sed 's/>=//' | cut -d. -f1)
-          if [ -z "$NODE_VERSION" ]; then
-            echo "❌ engines.node not found in package.json"
-            exit 1
-          fi
-          echo "node_version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "📦 Using Node.js version $NODE_VERSION from package.json"
-      # Remove --no-config-hints for testing so we can verify configuration hints work
-      - name: Enable config hints for testing
-        if: matrix.dep_scan != 'off'
-        run: |
-          # Remove --no-config-hints from both KNIP_CONFIG and SUMMARY_CONFIG lines
-          sed -i 's/\(KNIP_CONFIG="[^"]*\) --no-config-hints/\1/g' action.yml
-          sed -i 's/\(SUMMARY_CONFIG="[^"]*\) --no-config-hints/\1/g' action.yml
       - id: action
-        uses: ./
+        uses: bcgov/action-test-and-analyse@temporary-branch
         with:
           commands: |
             npm ci
             npm run test:cov
           dir: ${{ matrix.dir }}
-          node_version: ${{ steps.node-version.outputs.node_version }}
+          node_version: ${{ needs.init.outputs.node_version }}
           repository: bcgov/quickstart-openshift
           sonar_args: >
             -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
@@ -86,34 +98,8 @@ jobs:
       - name: Verify trigger behavior
         run: |
           echo "🔍 Verifying trigger behavior for ${{ matrix.name }}"
-          echo "Expected: ${{ matrix.expected_triggered }}"
-          echo "Actual: ${{ steps.action.outputs.triggered }}"
-
-          case "${{ matrix.name }}" in
-            "backend")
-              if [ "${{ steps.action.outputs.triggered }}" != "false" ]; then
-                echo "❌ Backend job should NOT have been triggered (no backend/ changes)"
-                exit 1
-              else
-                echo "✅ Backend job correctly NOT triggered"
-              fi
-              ;;
-            "frontend-merge")
-              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
-                echo "❌ Frontend-merge job should have been triggered (triggers: '.')"
-                exit 1
-              else
-                echo "✅ Frontend-merge job correctly triggered"
-              fi
-              ;;
-            "frontend-pr")
-              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
-                echo "❌ Frontend-pr job should have been triggered (no triggers = always run)"
-                exit 1
-              else
-                echo "✅ Frontend-pr job correctly triggered"
-              fi
-              ;;
-          esac
-
-          echo "🎉 ${{ matrix.name }} trigger behavior verified correctly!"
+          if [ "${{ steps.action.outputs.triggered }}" != "${{ matrix.expected_triggered }}" ]; then
+            echo "❌ ${{ matrix.name }}: expected triggered=${{ matrix.expected_triggered }}, got ${{ steps.action.outputs.triggered }}"
+            exit 1
+          fi
+          echo "✅ ${{ matrix.name }}: expected triggered=${{ matrix.expected_triggered }}, got ${{ steps.action.outputs.triggered }}"
