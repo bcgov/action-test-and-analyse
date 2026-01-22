@@ -49,16 +49,11 @@ jobs:
             dep_scan: error
     steps:
       - uses: actions/checkout@v6
-      - name: Resolve branch ref
-        id: branch
-        run: |
-          REF="${{ github.head_ref || github.ref_name }}"
-          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
-          echo "📌 Testing action at bcgov/action-test-and-analyse@${REF}"
       - name: Pre-check - verify remote action accessible
         run: |
           set -e
-          REF="${{ steps.branch.outputs.ref }}"
+          REF="${{ github.head_ref || github.ref_name }}"
+          echo "📌 Testing action at bcgov/action-test-and-analyse@${REF}"
           echo "Verifying refs/heads/${REF} exists on ${{ github.repository }}..."
           if ! git ls-remote --exit-code --heads "https://github.com/${{ github.repository }}.git" "refs/heads/${REF}" > /dev/null 2>&1; then
             echo "::error::Remote action not accessible: ref refs/heads/${REF} not found or repo unavailable. Check branch exists and GitHub is reachable."
@@ -78,7 +73,7 @@ jobs:
           echo "node_version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "📦 Using Node.js version $NODE_VERSION from package.json"
       - id: action
-        uses: bcgov/action-test-and-analyse@${{ steps.branch.outputs.ref }}
+        uses: bcgov/action-test-and-analyse@${{ github.head_ref || github.ref_name }}
         with:
           commands: |
             npm ci
