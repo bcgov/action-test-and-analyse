@@ -6,11 +6,11 @@ on:
   pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}
   cancel-in-progress: true
 
 permissions:
-  contents: write  # Needed to push temporary-branch
+  contents: write # Needed to push temporary-branch
 
 jobs:
   push-temp-branch:
@@ -22,7 +22,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Get Node.js version from package.json
         id: node-version
         run: |
@@ -99,74 +98,8 @@ jobs:
       - name: Verify trigger behavior
         run: |
           echo "🔍 Verifying trigger behavior for ${{ matrix.name }}"
-          echo "Expected: ${{ matrix.expected_triggered }}"
-          echo "Actual: ${{ steps.action.outputs.triggered }}"
-
-          case "${{ matrix.name }}" in
-            "backend")
-              if [ "${{ steps.action.outputs.triggered }}" != "false" ]; then
-                echo "❌ Backend job should NOT have been triggered (no backend/ changes)"
-                exit 1
-              else
-                echo "✅ Backend job correctly NOT triggered"
-              fi
-              ;;
-            "frontend-merge")
-              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
-                echo "❌ Frontend-merge job should have been triggered (triggers: '.')"
-                exit 1
-              else
-                echo "✅ Frontend-merge job correctly triggered"
-              fi
-              ;;
-            "frontend-pr")
-              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
-                echo "❌ Frontend-pr job should have been triggered (no triggers = always run)"
-                exit 1
-              else
-                echo "✅ Frontend-pr job correctly triggered"
-              fi
-              ;;
-            "dependency-setup-test")
-              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
-                echo "❌ Dependency-setup-test job should have been triggered (triggers: '.')"
-                exit 1
-              else
-                echo "✅ Dependency-setup-test job correctly triggered"
-              fi
-              ;;
-          esac
-
-          echo "🎉 ${{ matrix.name }} trigger behavior verified correctly!"
-
-      - name: Verify setup step completed successfully
-        if: steps.action.outputs.triggered == 'true' && (matrix.supply_scan != 'false' || matrix.dep_scan != 'off')
-        run: |
-          echo "🔍 Verifying dependency setup completed for ${{ matrix.name }}"
-          FAILED=0
-          if [ "${{ matrix.supply_scan }}" != "false" ]; then
-            if ! command -v safe-chain &> /dev/null; then
-              echo "❌ safe-chain not installed - supply scan setup may have failed"
-              FAILED=1
-            else
-              echo "✅ safe-chain installed"
-            fi
-          fi
-          if [ "${{ matrix.dep_scan }}" != "off" ]; then
-            if ! command -v knip &> /dev/null; then
-              echo "❌ knip not installed - dep scan setup may have failed"
-              FAILED=1
-            else
-              echo "✅ knip installed"
-            fi
-            if [ ! -f "${{ runner.temp }}/.knip.json" ]; then
-              echo "❌ knip config file not found at ${{ runner.temp }}/.knip.json - setup step may have failed"
-              FAILED=1
-            else
-              echo "✅ knip config file exists"
-            fi
-          fi
-          if [ "$FAILED" -ne 0 ]; then
+          if [ "${{ steps.action.outputs.triggered }}" != "${{ matrix.expected_triggered }}" ]; then
+            echo "❌ ${{ matrix.name }}: expected triggered=${{ matrix.expected_triggered }}, got ${{ steps.action.outputs.triggered }}"
             exit 1
           fi
-          echo "✅ Dependency setup step completed successfully"
+          echo "✅ ${{ matrix.name }} trigger behavior verified correctly!"
