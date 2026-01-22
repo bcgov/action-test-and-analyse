@@ -73,7 +73,6 @@ jobs:
             supply_scan: true
             dep_scan: error
     steps:
-      - uses: actions/checkout@v6
       - id: action
         uses: bcgov/action-test-and-analyse@temporary-branch
         with:
