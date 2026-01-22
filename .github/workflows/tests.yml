@@ -2,13 +2,6 @@ name: Tests
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - ".github/**"
-      - "**.md"
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -52,7 +45,7 @@ jobs:
       - name: Pre-check - verify remote action accessible
         run: |
           set -e
-          REF="${{ github.head_ref || github.ref_name }}"
+          REF="${{ github.head_ref }}"
           echo "📌 Testing action at bcgov/action-test-and-analyse@${REF}"
           echo "Verifying refs/heads/${REF} exists on ${{ github.repository }}..."
           if ! git ls-remote --exit-code --heads "https://github.com/${{ github.repository }}.git" "refs/heads/${REF}" > /dev/null 2>&1; then
@@ -73,7 +66,7 @@ jobs:
           echo "node_version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "📦 Using Node.js version $NODE_VERSION from package.json"
       - id: action
-        uses: bcgov/action-test-and-analyse@${{ github.head_ref || github.ref_name }}
+        uses: bcgov/action-test-and-analyse@${{ github.head_ref }}
         with:
           commands: |
             npm ci
