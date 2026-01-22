@@ -55,7 +55,7 @@ jobs:
           echo "node_version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "📦 Using Node.js version $NODE_VERSION from package.json"
       - id: action
-        uses: bcgov/action-test-and-analyse@${{ github.head_ref }}
+        uses: bcgov/action-test-and-analyse@${{ github.event.pull_request.head.ref }}
         with:
           commands: |
             npm ci
