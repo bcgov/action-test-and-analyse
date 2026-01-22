@@ -115,20 +115,22 @@ runs:
       with:
         repository: bcgov/action-test-and-analyse
         ref: ${{ env.ACTION_REF }}
-        path: ${{ runner.temp }}/action-repo
+        path: .action-repo
         fetch-depth: 1
     - name: Verify action repo checkout
       if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
       shell: bash
       run: |
-        ACTION_REPO_PATH="${{ runner.temp }}/action-repo"
+        ACTION_REPO_PATH="${{ github.workspace }}/.action-repo"
+        echo "Workspace: ${{ github.workspace }}"
         echo "Checking for package.json at $ACTION_REPO_PATH/package.json..."
         if [ -f "$ACTION_REPO_PATH/package.json" ]; then
           echo "✅ Found package.json at $ACTION_REPO_PATH/package.json"
           ls -la "$ACTION_REPO_PATH/" | head -10
         else
           echo "❌ package.json not found at $ACTION_REPO_PATH/package.json"
-          ls -la "${{ runner.temp }}/" || echo "Temp directory listing failed"
+          echo "Current directory: $(pwd)"
+          ls -la "${{ github.workspace }}/" 2>/dev/null || echo "Workspace directory listing failed"
         fi
 
     # Setup node version (for tool installation, no cache yet - file doesn't exist)
@@ -147,7 +149,7 @@ runs:
         # Convert to absolute paths for Node.js require()
         ACTION_PACKAGE_JSON=""
         ACTION_ROOT=""
-        ACTION_REPO_PATH="${{ runner.temp }}/action-repo"
+        ACTION_REPO_PATH="${{ github.workspace }}/.action-repo"
         
         if [ -f "$ACTION_REPO_PATH/package.json" ]; then
           ACTION_PACKAGE_JSON="$ACTION_REPO_PATH/package.json"
@@ -161,6 +163,7 @@ runs:
           echo "::error::Cannot find action package.json"
           echo "Checked: $ACTION_REPO_PATH/package.json"
           echo "Checked: ${{ github.action_path }}/package.json"
+          echo "Workspace: ${{ github.workspace }}"
           ls -la "$ACTION_REPO_PATH" 2>/dev/null || echo "Action repo directory does not exist at $ACTION_REPO_PATH"
           exit 1
         fi
