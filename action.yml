@@ -93,11 +93,11 @@ runs:
         diff_branch: ${{ inputs.diff_branch }}
 
     # If triggered and (dep or supply) enabled: prepare tools first
-    # Checkout action repo to access package.json and .knip.json files
+    # Download package.json and .knip.json from GitHub raw content API
     # This is needed because github.action_path may not include all files when using branch refs
     # Note: github.action_repository and github.action_ref are empty in composite actions
     # Extract ref from action path or default to 'main'
-    - name: Determine action ref
+    - name: Download action files
       if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
       shell: bash
       run: |
@@ -107,31 +107,29 @@ runs:
         if [[ "${{ github.action_path }}" =~ _actions/[^/]+/[^/]+/(.+) ]]; then
           ACTION_REF="${BASH_REMATCH[1]}"
         fi
-        echo "ACTION_REF=$ACTION_REF" >> "$GITHUB_ENV"
         echo "Determined action ref: $ACTION_REF from path: ${{ github.action_path }}"
-    - name: Checkout action repo for tool setup
-      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
-      uses: actions/checkout@v6
-      with:
-        repository: bcgov/action-test-and-analyse
-        ref: ${{ env.ACTION_REF }}
-        path: .action-repo
-        fetch-depth: 1
-    - name: Verify action repo checkout
-      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
-      shell: bash
-      run: |
-        ACTION_REPO_PATH="${{ github.workspace }}/.action-repo"
-        echo "Workspace: ${{ github.workspace }}"
-        echo "Checking for package.json at $ACTION_REPO_PATH/package.json..."
-        if [ -f "$ACTION_REPO_PATH/package.json" ]; then
-          echo "✅ Found package.json at $ACTION_REPO_PATH/package.json"
-          ls -la "$ACTION_REPO_PATH/" | head -10
-        else
-          echo "❌ package.json not found at $ACTION_REPO_PATH/package.json"
-          echo "Current directory: $(pwd)"
-          ls -la "${{ github.workspace }}/" 2>/dev/null || echo "Workspace directory listing failed"
+        
+        # Create temp directory for action files
+        ACTION_FILES_DIR="${{ runner.temp }}/action-files"
+        mkdir -p "$ACTION_FILES_DIR"
+        
+        # Download package.json and .knip.json from GitHub raw content API
+        echo "Downloading package.json from GitHub..."
+        curl -s -f -o "$ACTION_FILES_DIR/package.json" \
+          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/package.json" || {
+          echo "::warning::Failed to download package.json, will try action_path"
+          ACTION_REF=""
+        }
+        
+        if [ -n "$ACTION_REF" ]; then
+          echo "Downloading .knip.json from GitHub..."
+          curl -s -f -o "$ACTION_FILES_DIR/.knip.json" \
+            "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/.knip.json" || {
+            echo "::warning::Failed to download .knip.json"
+          }
         fi
+        
+        echo "ACTION_FILES_DIR=$ACTION_FILES_DIR" >> "$GITHUB_ENV"
 
     # Setup node version (for tool installation, no cache yet - file doesn't exist)
     - uses: actions/setup-node@v6
@@ -145,26 +143,24 @@ runs:
         # Setup safe-chain and/or knip
         set -e
 
-        # Determine path to action files (use checked-out repo if available, otherwise fallback to action_path)
+        # Determine path to action files (use downloaded files if available, otherwise fallback to action_path)
         # Convert to absolute paths for Node.js require()
         ACTION_PACKAGE_JSON=""
         ACTION_ROOT=""
-        ACTION_REPO_PATH="${{ github.workspace }}/.action-repo"
+        ACTION_FILES_DIR="${{ env.ACTION_FILES_DIR }}"
         
-        if [ -f "$ACTION_REPO_PATH/package.json" ]; then
-          ACTION_PACKAGE_JSON="$ACTION_REPO_PATH/package.json"
-          ACTION_ROOT="$ACTION_REPO_PATH"
-          echo "Using checked-out action repo at: $ACTION_ROOT"
+        if [ -f "$ACTION_FILES_DIR/package.json" ]; then
+          ACTION_PACKAGE_JSON="$ACTION_FILES_DIR/package.json"
+          ACTION_ROOT="$ACTION_FILES_DIR"
+          echo "Using downloaded action files at: $ACTION_ROOT"
         elif [ -f "${{ github.action_path }}/package.json" ]; then
           ACTION_PACKAGE_JSON="${{ github.action_path }}/package.json"
           ACTION_ROOT="${{ github.action_path }}"
           echo "Using action_path at: $ACTION_ROOT"
         else
           echo "::error::Cannot find action package.json"
-          echo "Checked: $ACTION_REPO_PATH/package.json"
+          echo "Checked: $ACTION_FILES_DIR/package.json"
           echo "Checked: ${{ github.action_path }}/package.json"
-          echo "Workspace: ${{ github.workspace }}"
-          ls -la "$ACTION_REPO_PATH" 2>/dev/null || echo "Action repo directory does not exist at $ACTION_REPO_PATH"
           exit 1
         fi
 
