@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [backend, frontend-merge, frontend-pr]
+        name: [backend, frontend-merge, frontend-pr, knip-setup-test]
         include:
           - name: backend
             dir: backend
@@ -41,6 +41,12 @@ jobs:
             expected_triggered: true
             supply_scan: true
             dep_scan: off
+          - name: knip-setup-test
+            dir: frontend
+            triggers: ('.')
+            expected_triggered: true
+            supply_scan: false
+            dep_scan: error
     steps:
       - uses: actions/checkout@v6
       # Read Node.js version from package.json
@@ -114,6 +120,28 @@ jobs:
                 echo "✅ Frontend-pr job correctly triggered"
               fi
               ;;
+            "knip-setup-test")
+              if [ "${{ steps.action.outputs.triggered }}" != "true" ]; then
+                echo "❌ Knip-setup-test job should have been triggered (triggers: '.')"
+                exit 1
+              else
+                echo "✅ Knip-setup-test job correctly triggered"
+              fi
+              ;;
           esac
 
           echo "🎉 ${{ matrix.name }} trigger behavior verified correctly!"
+
+      - name: Verify setup step completed successfully
+        if: steps.action.outputs.triggered == 'true' && matrix.dep_scan != 'off'
+        run: |
+          echo "🔍 Verifying setup step completed for ${{ matrix.name }}"
+          if ! command -v knip &> /dev/null; then
+            echo "❌ knip not installed - setup step may have failed"
+            exit 1
+          fi
+          if [ ! -f "${{ runner.temp }}/.knip.json" ]; then
+            echo "❌ knip config file not found at ${{ runner.temp }}/.knip.json - setup step may have failed"
+            exit 1
+          fi
+          echo "✅ Setup step completed successfully - knip is installed and config file exists"
