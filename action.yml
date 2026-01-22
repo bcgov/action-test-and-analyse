@@ -114,14 +114,14 @@ runs:
 
         # Install and initialize safe-chain
         if [ "${{ inputs.supply_scan }}" != "false" ]; then
-          SAFE_CHAIN_VERSION=$(jq -er '.dependencies["@aikidosec/safe-chain"]' package.json)
+          SAFE_CHAIN_VERSION=$(node -e "console.log(require('./package.json').dependencies['@aikidosec/safe-chain'])")
           npm install -g "@aikidosec/safe-chain@$SAFE_CHAIN_VERSION"
           safe-chain setup-ci
         fi
 
         # Install knip and copy default configuration to temporary directory
         if [ "${{ inputs.dep_scan }}" != "off" ]; then
-          KNIP_VERSION=$(jq -er '.dependencies["knip"]' package.json)
+          KNIP_VERSION=$(node -e "console.log(require('./package.json').dependencies['knip'])")
           npm install -g "knip@$KNIP_VERSION"
           cp .knip.json "${{ runner.temp }}/.knip.json"
         fi
