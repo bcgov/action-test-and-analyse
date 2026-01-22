@@ -6,7 +6,8 @@ on:
   pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}
+  # Use PR number to isolate each PR's test runs while allowing parallel PRs
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -21,7 +22,6 @@ jobs:
       contents: write
     outputs:
       node_version: ${{ steps.node-version.outputs.node_version }}
-      temp_branch: temporary-branch
     steps:
       - uses: actions/checkout@v6
         with:
@@ -41,8 +41,11 @@ jobs:
       - name: Push PR head to temporary-branch for action testing
         run: |
           set -e
+          # Note: Fork PRs will fail here due to GITHUB_TOKEN write permission limitations.
+          # This workflow only works for same-repository PRs.
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Concurrency group ensures only one PR pushes to temporary-branch at a time
           git push origin HEAD:temporary-branch --force
           echo "✅ Pushed PR head (${{ github.event.pull_request.head.sha }}) to temporary-branch"
 
