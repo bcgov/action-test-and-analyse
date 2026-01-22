@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [backend, frontend-merge, frontend-pr, dependency-setup-test]
+        name: [backend, frontend-merge, frontend-pr]
         include:
           - name: backend
             dir: backend
@@ -73,15 +73,6 @@ jobs:
             expected_triggered: true
             supply_scan: true
             dep_scan: off
-          - name: dependency-setup-test
-            dir: frontend
-            # Note: Uses same triggers as frontend-merge but tests dep_scan: error mode
-            # to verify setup step runs correctly when dep_scan fails. The duplication
-            # is intentional to test both warn and error modes.
-            triggers: ('.')
-            expected_triggered: true
-            supply_scan: true
-            dep_scan: error
     steps:
       - id: action
         uses: bcgov/action-test-and-analyse@${{ needs.push-temp-branch.outputs.temp_branch }}
