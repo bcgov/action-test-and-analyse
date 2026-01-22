@@ -115,19 +115,20 @@ runs:
       with:
         repository: bcgov/action-test-and-analyse
         ref: ${{ env.ACTION_REF }}
-        path: .action-repo
+        path: ${{ runner.temp }}/action-repo
         fetch-depth: 1
     - name: Verify action repo checkout
       if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
       shell: bash
       run: |
-        echo "Checking for .action-repo/package.json..."
-        if [ -f "${{ github.workspace }}/.action-repo/package.json" ]; then
-          echo "✅ Found package.json at ${{ github.workspace }}/.action-repo/package.json"
-          ls -la "${{ github.workspace }}/.action-repo/" | head -10
+        ACTION_REPO_PATH="${{ runner.temp }}/action-repo"
+        echo "Checking for package.json at $ACTION_REPO_PATH/package.json..."
+        if [ -f "$ACTION_REPO_PATH/package.json" ]; then
+          echo "✅ Found package.json at $ACTION_REPO_PATH/package.json"
+          ls -la "$ACTION_REPO_PATH/" | head -10
         else
-          echo "❌ package.json not found at ${{ github.workspace }}/.action-repo/package.json"
-          ls -la "${{ github.workspace }}/" || echo "Workspace directory listing failed"
+          echo "❌ package.json not found at $ACTION_REPO_PATH/package.json"
+          ls -la "${{ runner.temp }}/" || echo "Temp directory listing failed"
         fi
 
     # Setup node version (for tool installation, no cache yet - file doesn't exist)
@@ -146,10 +147,11 @@ runs:
         # Convert to absolute paths for Node.js require()
         ACTION_PACKAGE_JSON=""
         ACTION_ROOT=""
+        ACTION_REPO_PATH="${{ runner.temp }}/action-repo"
         
-        if [ -f "${{ github.workspace }}/.action-repo/package.json" ]; then
-          ACTION_PACKAGE_JSON="${{ github.workspace }}/.action-repo/package.json"
-          ACTION_ROOT="${{ github.workspace }}/.action-repo"
+        if [ -f "$ACTION_REPO_PATH/package.json" ]; then
+          ACTION_PACKAGE_JSON="$ACTION_REPO_PATH/package.json"
+          ACTION_ROOT="$ACTION_REPO_PATH"
           echo "Using checked-out action repo at: $ACTION_ROOT"
         elif [ -f "${{ github.action_path }}/package.json" ]; then
           ACTION_PACKAGE_JSON="${{ github.action_path }}/package.json"
@@ -157,9 +159,9 @@ runs:
           echo "Using action_path at: $ACTION_ROOT"
         else
           echo "::error::Cannot find action package.json"
-          echo "Checked: ${{ github.workspace }}/.action-repo/package.json"
+          echo "Checked: $ACTION_REPO_PATH/package.json"
           echo "Checked: ${{ github.action_path }}/package.json"
-          ls -la "${{ github.workspace }}/.action-repo" || echo ".action-repo directory does not exist"
+          ls -la "$ACTION_REPO_PATH" 2>/dev/null || echo "Action repo directory does not exist at $ACTION_REPO_PATH"
           exit 1
         fi
 
