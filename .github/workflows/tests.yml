@@ -99,9 +99,9 @@ jobs:
             dir: frontend
             expected_triggered: true
             supply_scan: false
-            dep_scan: error
+            dep_scan: warn
             commands: |
-              npm i
+              npm ci
               echo "Good enough for testing knip!"
             repository: bcgov/nr-waste-plus
 
