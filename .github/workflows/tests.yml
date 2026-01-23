@@ -46,7 +46,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # Concurrency group ensures only one PR pushes to temporary-branch at a time
-          git push origin HEAD:temporary-branch --force
+          git push origin HEAD:refs/heads/temporary-branch --force
           echo "✅ Pushed PR head (${{ github.event.pull_request.head.sha }}) to temporary-branch"
 
   tests:
