@@ -119,7 +119,7 @@ jobs:
             -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
             -Dsonar.sources=src
             -Dsonar.tests.inclusions=**/*spec.ts
-          sonar_token: ${{ (matrix.name == 'backend-triggered' ) && secrets.SONAR_TOKEN_BACKEND || (matrix.name == 'frontend-basic' ) && secrets.SONAR_TOKEN_FRONTEND || '' }}
+          sonar_token: ${{ (matrix.name == 'frontend-basic' ) && secrets.SONAR_TOKEN_FRONTEND || '' }}
           triggers: ${{ matrix.triggers }}
           supply_scan: ${{ matrix.supply_scan }}
           dep_scan: ${{ matrix.dep_scan }}
