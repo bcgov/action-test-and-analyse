@@ -63,27 +63,28 @@ jobs:
             expected_triggered: false
             supply_scan: false
             dep_scan: error
-            commands: |
-              npm ci
-              npm run test:cov
+            test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
+            sonar_args: >
+              -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
+              -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
+              -Dsonar.organization=bcgov-nr
+              -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
+              -Dsonar.sources=src
+              -Dsonar.tests.inclusions=**/*spec.ts
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
             expected_triggered: true
             dep_scan: warn
-            commands: |
-              npm ci
-              npm run test:cov
+            test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: frontend-pr
             dir: frontend
             expected_triggered: true
             supply_scan: true
             dep_scan: off
-            commands: |
-              npm ci
-              npm run test:cov
+            test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: frontend-full-scan
             dir: frontend
@@ -91,17 +92,14 @@ jobs:
             expected_triggered: true
             supply_scan: true
             dep_scan: warn
-            commands: |
-              npm ci
-              npm run test:cov
+            test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: waste
             dir: frontend
             expected_triggered: true
             supply_scan: false
             dep_scan: warn
-            commands: |
-              npm ci
+            test_command: npm run test:cov
               echo "Good enough for testing knip!"
             repository: bcgov/nr-waste-plus
 
@@ -109,17 +107,13 @@ jobs:
       - id: action
         uses: bcgov/action-test-and-analyse@temporary-branch
         with:
-          commands: ${{ matrix.commands }}
+          commands: |
+            npm ci
+            ${matrix.test_command}
           dir: ${{ matrix.dir }}
           node_version: ${{ needs.init.outputs.node_version }}
           repository: ${{ matrix.repository }}
-          sonar_args: >
-            -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
-            -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
-            -Dsonar.organization=bcgov-nr
-            -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_${{ matrix.dir }}
-            -Dsonar.sources=src
-            -Dsonar.tests.inclusions=**/*spec.ts
+          sonar_args: ${{ matrix.sonar_args }}
           sonar_token: ${{ matrix.name == 'backend' && secrets.SONAR_TOKEN_BACKEND || secrets.SONAR_TOKEN_FRONTEND }}
           triggers: ${{ matrix.triggers }}
           supply_scan: ${{ matrix.supply_scan }}
