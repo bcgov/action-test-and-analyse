@@ -65,13 +65,6 @@ jobs:
             dep_scan: error
             test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
-            sonar_args: >
-              -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
-              -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
-              -Dsonar.organization=bcgov-nr
-              -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
-              -Dsonar.sources=src
-              -Dsonar.tests.inclusions=**/*spec.ts
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
@@ -113,8 +106,14 @@ jobs:
           dir: ${{ matrix.dir }}
           node_version: ${{ needs.init.outputs.node_version }}
           repository: ${{ matrix.repository }}
-          sonar_args: ${{ matrix.sonar_args }}
-          sonar_token: ${{ matrix.name == 'backend' && secrets.SONAR_TOKEN_BACKEND || secrets.SONAR_TOKEN_FRONTEND }}
+          sonar_args: >
+            -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
+            -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
+            -Dsonar.organization=bcgov-nr
+            -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
+            -Dsonar.sources=src
+            -Dsonar.tests.inclusions=**/*spec.ts
+          sonar_token: ${{ matrix.name == 'backend' && secrets.SONAR_TOKEN_BACKEND || matrix.name == 'frontend' && secrets.SONAR_TOKEN_FRONTEND || '' }}
           triggers: ${{ matrix.triggers }}
           supply_scan: ${{ matrix.supply_scan }}
           dep_scan: ${{ matrix.dep_scan }}
