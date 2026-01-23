@@ -197,6 +197,8 @@ runs:
         ls -la
         pwd
 
+        npm ci
+
         # Clean up any previous Knip output files
         rm -f knip-output.json knip-error.log knip-summary.txt
 
