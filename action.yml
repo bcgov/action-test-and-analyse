@@ -92,12 +92,30 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         diff_branch: ${{ inputs.diff_branch }}
 
+    # Get action repository and ref from environment variables with fallbacks
+    - name: Get action repo and ref
+      if: steps.diff.outputs.triggered == 'true'
+      id: action_repo
+      shell: bash
+      run: |
+        ACTION_REPO="${GITHUB_ACTION_REPOSITORY:-${{ github.action_repository }}}"
+        ACTION_REF="${GITHUB_ACTION_REF:-${{ github.action_ref }}}"
+        
+        # If still empty, fall back to current repo/ref (but this shouldn't happen)
+        ACTION_REPO="${ACTION_REPO:-${{ github.repository }}}"
+        ACTION_REF="${ACTION_REF:-${{ github.ref }}}"
+        
+        echo "repository=$ACTION_REPO" >> $GITHUB_OUTPUT
+        echo "ref=$ACTION_REF" >> $GITHUB_OUTPUT
+        echo "Using repository: $ACTION_REPO"
+        echo "Using ref: $ACTION_REF"
+
     # Checkout the action (upstream) repo
     - uses: actions/checkout@v6
       if: steps.diff.outputs.triggered == 'true'
       with:
-        repository: ${{ env.GITHUB_ACTION_REPOSITORY }}
-        ref: ${GITHUB_ACTION_REF || GITHUB_REF}
+        repository: ${{ steps.action_repo.outputs.repository }}
+        ref: ${{ steps.action_repo.outputs.ref }}
 
     # Ger versions from package.json
     - name: Get versions from package.json
