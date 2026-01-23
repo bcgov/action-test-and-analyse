@@ -215,11 +215,19 @@ runs:
         KNIP_EXIT_CODE=$?
         set -e
 
-        ls -la
-        pwd
+        # Check if JSON is in stderr instead of stdout (some Knip versions/plugins write JSON to stderr)
+        if [ -f knip-output.json ] && [ ! -s knip-output.json ] && [ -f knip-error.log ] && [ -s knip-error.log ]; then
+          # stdout is empty, check if stderr has valid JSON
+          if jq empty knip-error.log >/dev/null 2>&1; then
+            # JSON is in stderr, move it to stdout file
+            mv knip-error.log knip-output.json
+            touch knip-error.log
+          fi
+        fi
 
         # Validate JSON before parsing (in case of non-JSON errors)
-        if [ "$KNIP_EXIT_CODE" -ne 0 ] && [ -f knip-output.json ]; then
+        # Only treat as hard failure when exit code is 2 (actual crash), not 1 (issues found)
+        if [ "$KNIP_EXIT_CODE" -eq 2 ] && [ -f knip-output.json ]; then
           if ! jq empty knip-output.json >/dev/null 2>&1; then
             # Add summary for invalid JSON before exiting
             {
@@ -346,9 +354,39 @@ runs:
             echo "Running in error mode - workflow will exit"
             exit $KNIP_EXIT_CODE
           fi
+        elif [ $KNIP_EXIT_CODE -eq 1 ]; then
+          # Exit code 1 + invalid JSON = issues found but output corrupted/unparseable
+          # Still respect warn/error mode (stop hard in error mode)
+          {
+            echo "## ⚠️ Knip Found Issues (Output Corrupted)"
+            echo ""
+            echo "Knip reported issues (exit code 1) but the output could not be parsed as JSON."
+            echo "This may indicate plugin output mixed with JSON or other output issues."
+            echo ""
+            if [ -f knip-error.log ]; then
+              echo "### Error Output"
+              echo "\`\`\`"
+              cat knip-error.log
+              echo "\`\`\`"
+            fi
+            if [ -f knip-output.json ]; then
+              echo "### Output File"
+              echo "\`\`\`"
+              cat knip-output.json
+              echo "\`\`\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          
+          echo "⚠️  Knip found issues but output was corrupted/unparseable"
+          if [ "${{ inputs.dep_scan }}" = "warn" ]; then
+            echo "Running in warn mode - workflow will continue"
+            exit 0
+          else
+            echo "Running in error mode - workflow will exit"
+            exit $KNIP_EXIT_CODE
+          fi
         else
-          # No valid JSON with non-zero exit = tool failure (warn but continue)
-          # Add summary for tool failures
+          # Exit code 2+ = actual tool failure (warn but continue)
           {
             echo "## ❌ Knip Tool Failure"
             echo ""
