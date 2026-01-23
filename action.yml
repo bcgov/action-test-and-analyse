@@ -189,8 +189,6 @@ runs:
 
     # If triggered and (dep or supply) enabled: run analysis tools
     - if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
-      env:
-        DOTENV_CONFIG_QUIET: true
       working-directory: ${{ inputs.dir }}
       shell: bash
       run: |
@@ -213,7 +211,7 @@ runs:
 
         # Run knip with JSON output for annotations (stderr separate to avoid corrupting JSON)
         set +e
-        knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json 2> knip-error.log
+        DOTENV_CONFIG_QUIET=true knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json 2> knip-error.log
         KNIP_EXIT_CODE=$?
         set -e
 
