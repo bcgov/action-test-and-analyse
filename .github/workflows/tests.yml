@@ -63,18 +63,27 @@ jobs:
             expected_triggered: false
             supply_scan: false
             dep_scan: error
+            commands: |
+              npm ci
+              npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
             expected_triggered: true
             dep_scan: warn
+            commands: |
+              npm ci
+              npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: frontend-pr
             dir: frontend
             expected_triggered: true
             supply_scan: true
             dep_scan: off
+            commands: |
+              npm ci
+              npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: frontend-full-scan
             dir: frontend
@@ -82,21 +91,28 @@ jobs:
             expected_triggered: true
             supply_scan: true
             dep_scan: warn
+            commands: |
+              npm ci
+              npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: waste
             dir: frontend
             expected_triggered: true
             supply_scan: false
             dep_scan: error
+            commands: |
+              git config --global --add safe.directory /__w/nr-waste-plus/nr-waste-plus
+              npm i
+              npx playwright install-deps
+              npx playwright install
+              npm run test:coverage
             repository: bcgov/nr-waste-plus
 
     steps:
       - id: action
         uses: bcgov/action-test-and-analyse@temporary-branch
         with:
-          commands: |
-            npm ci
-            npm run test:cov
+          commands: ${{ matrix.commands }}
           dir: ${{ matrix.dir }}
           node_version: ${{ needs.init.outputs.node_version }}
           repository: ${{ matrix.repository }}
