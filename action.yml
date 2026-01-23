@@ -216,7 +216,7 @@ runs:
           export KNIP_DIR="${{ inputs.dir }}"
           
           # Validate and parse JSON with error handling
-          PARSE_ERROR=$(node -e "
+          if ! PARSE_ERROR=$(node -e "
             try {
               const fs = require('fs');
               const content = fs.readFileSync('./knip-output.json', 'utf8');
@@ -240,9 +240,8 @@ runs:
               }
               process.exit(1);
             }
-          " 2>&1)
+          " 2>&1); then
           
-          if [ $? -ne 0 ]; then
             echo "::error::Failed to parse Knip JSON output"
             case "$PARSE_ERROR" in
               *ERROR_NOT_FOUND*)
