@@ -98,10 +98,19 @@ runs:
       id: action_repo
       shell: bash
       run: |
+        echo "=== DEBUG: Action Ref Detection ==="
+        echo "GITHUB_ACTION_REF: ${GITHUB_ACTION_REF:-<not set>}"
+        echo "github.action_ref: ${{ github.action_ref }}"
+        echo "github.action_path: ${{ github.action_path }}"
+        echo "github.ref: ${{ github.ref }}"
+        echo "github.sha: ${{ github.sha }}"
+        
         ACTION_REF="${GITHUB_ACTION_REF:-${{ github.action_ref }}}"
+        echo "ACTION_REF after first check: ${ACTION_REF:-<empty>}"
 
         # If still empty, extract from action_path (e.g., _actions/bcgov/action-test-and-analyse/temporary-branch/...)
         if [ -z "$ACTION_REF" ]; then
+          echo "ACTION_REF is empty, attempting to extract from action_path..."
           if [[ "${{ github.action_path }}" =~ _actions/[^/]+/[^/]+/(.+) ]]; then
             ACTION_REF="${BASH_REMATCH[1]}"
             echo "Extracted ref from action_path: $ACTION_REF"
@@ -111,6 +120,8 @@ runs:
           fi
         fi
 
+        echo "Final ACTION_REF: $ACTION_REF"
+        echo "=== END DEBUG ==="
         echo "ref=$ACTION_REF" >> $GITHUB_OUTPUT
         echo "Using ref: $ACTION_REF"
 
