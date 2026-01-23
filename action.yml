@@ -206,6 +206,12 @@ runs:
         # Run Knip for dependency and export analysis
         set -e
 
+        # Install jq if not available (required for JSON parsing)
+        if ! command -v jq &> /dev/null; then
+          echo "Installing jq..."
+          sudo apt-get update -qq && sudo apt-get install -y jq
+        fi
+
         # Temporary - testing
         npm ci
 
