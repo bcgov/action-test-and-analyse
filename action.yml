@@ -92,31 +92,6 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         diff_branch: ${{ inputs.diff_branch }}
 
-    # If triggered and (dep or supply) enabled: prepare tools first
-    # Download package.json and .knip.json from GitHub raw content API
-    # This is needed because github.action_path may not include all files when using branch refs
-    - name: Download action files
-      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
-      shell: bash
-      run: |
-        set -e
-        # Extract ref from action path pattern: .../_actions/owner/repo/ref, default to 'main'
-        ACTION_REF="main"
-        if [[ "${{ github.action_path }}" =~ _actions/[^/]+/[^/]+/(.+) ]]; then
-          ACTION_REF="${BASH_REMATCH[1]}"
-        fi
-        
-        ACTION_FILES_DIR="${{ runner.temp }}/action-files"
-        mkdir -p "$ACTION_FILES_DIR"
-        
-        # Download files from GitHub raw content API (failures are handled by fallback to action_path)
-        curl -s -f -o "$ACTION_FILES_DIR/package.json" \
-          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/package.json" || true
-        curl -s -f -o "$ACTION_FILES_DIR/.knip.json" \
-          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/.knip.json" || true
-        
-        echo "ACTION_FILES_DIR=$ACTION_FILES_DIR" >> "$GITHUB_ENV"
-
     # Setup node version (for tool installation, no cache yet - file doesn't exist)
     - uses: actions/setup-node@v6
       if: steps.diff.outputs.triggered == 'true'
@@ -129,13 +104,26 @@ runs:
         # Setup safe-chain and/or knip
         set -e
 
-        # Determine path to action files (prefer downloaded, fallback to action_path)
-        ACTION_FILES_DIR="${{ env.ACTION_FILES_DIR }}"
+        # Get action files: download from API (works for all ref types) or use action_path as fallback
+        # Extract ref from action path pattern: .../_actions/owner/repo/ref, default to 'main'
+        ACTION_REF="main"
+        if [[ "${{ github.action_path }}" =~ _actions/[^/]+/[^/]+/(.+) ]]; then
+          ACTION_REF="${BASH_REMATCH[1]}"
+        fi
         
-        if [ -f "$ACTION_FILES_DIR/package.json" ]; then
+        ACTION_FILES_DIR="${{ runner.temp }}/action-files"
+        mkdir -p "$ACTION_FILES_DIR"
+        
+        # Try to download from API (works for branches, tags, and SHAs)
+        if curl -s -f -o "$ACTION_FILES_DIR/package.json" \
+          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/package.json" 2>/dev/null; then
           ACTION_PACKAGE_JSON="$ACTION_FILES_DIR/package.json"
           ACTION_ROOT="$ACTION_FILES_DIR"
+          # Also download .knip.json if available
+          curl -s -f -o "$ACTION_FILES_DIR/.knip.json" \
+            "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/.knip.json" 2>/dev/null || true
         elif [ -f "${{ github.action_path }}/package.json" ]; then
+          # Fallback to action_path (works for tags/commits)
           ACTION_PACKAGE_JSON="${{ github.action_path }}/package.json"
           ACTION_ROOT="${{ github.action_path }}"
         else
@@ -154,11 +142,7 @@ runs:
         if [ "${{ inputs.dep_scan }}" != "off" ]; then
           KNIP_VERSION=$(node -e "console.log(require('$ACTION_PACKAGE_JSON').dependencies['knip'])")
           npm install -g "knip@$KNIP_VERSION"
-          if [ -f "$ACTION_ROOT/.knip.json" ]; then
-            cp "$ACTION_ROOT/.knip.json" "${{ runner.temp }}/.knip.json"
-          else
-            echo "::warning::.knip.json not found, knip will use default configuration"
-          fi
+          [ -f "$ACTION_ROOT/.knip.json" ] && cp "$ACTION_ROOT/.knip.json" "${{ runner.temp }}/.knip.json"
         fi
 
     # Checkout the target repository - SonarCloud requires a full clone
