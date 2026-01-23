@@ -70,7 +70,7 @@ This is a GitHub Actions composite action, so testing is done through workflow e
 - Installed globally and initialized with `safe-chain setup-ci`
 - Must run before package installation commands
 - Should fail workflow if threats detected
-- Users can disable by setting `supply_scan: false`
+- ⚠️ Disabling is strongly discouraged - only for exceptional cases where security risks are understood
 
 ### Dependency Analysis (Knip)
 - Feature is opt-in via `dep_scan` input (default: `warn`)
@@ -141,7 +141,7 @@ This is a GitHub Actions composite action, so testing is done through workflow e
 - `knip` - For dependency/export analysis (warn mode by default, installed globally)
 
 ### System Tools
-- `jq` - For JSON parsing (system tool, available on GitHub-hosted runners)
+- Node.js - For JSON parsing (uses require() and node -p/node -e commands)
 
 ## Renovate Configuration
 

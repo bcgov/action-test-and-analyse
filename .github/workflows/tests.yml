@@ -55,74 +55,59 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [backend, frontend-merge, frontend-pr, frontend-full-scan, waste]
+        name:
+          [
+            backend-triggered,
+            backend-not-triggered,
+            frontend-basic,
+            frontend-no-triggers,
+            waste-frontend,
+          ]
         include:
-          - name: backend
+          - name: backend-triggered
+            dir: backend
+            triggers: ('.')
+            expected_triggered: true
+            dep_scan: error
+            test_command: npm run test:cov
+            repository: bcgov/quickstart-openshift
+          - name: backend-not-triggered
             dir: backend
             triggers: ('backend/')
             expected_triggered: false
-            supply_scan: false
             dep_scan: error
-            commands: |
-              npm ci
-              npm run test:cov
+            test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
-          - name: frontend-merge
+          - name: frontend-basic
             dir: frontend
             triggers: ('.')
             expected_triggered: true
             dep_scan: warn
-            commands: |
-              npm ci
-              npm run test:cov
+            test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
-          - name: frontend-pr
+          - name: frontend-no-triggers
             dir: frontend
             expected_triggered: true
-            supply_scan: true
             dep_scan: off
-            commands: |
-              npm ci
-              npm run test:cov
+            test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
-          - name: frontend-full-scan
-            dir: frontend
-            triggers: ('.')
-            expected_triggered: true
-            supply_scan: true
-            dep_scan: warn
-            commands: |
-              npm ci
-              npm run test:cov
-            repository: bcgov/quickstart-openshift
-          - name: waste
+          - name: waste-frontend
             dir: frontend
             expected_triggered: true
-            supply_scan: false
             dep_scan: warn
-            commands: |
-              npm ci
-              echo "Good enough for testing knip!"
+            test_command: echo "Good enough for testing knip!"
             repository: bcgov/nr-waste-plus
-
     steps:
       - id: action
         uses: bcgov/action-test-and-analyse@temporary-branch
         with:
-          commands: ${{ matrix.commands }}
+          commands: |
+            npm ci
+            ${{ matrix.test_command }}
           dir: ${{ matrix.dir }}
           node_version: ${{ needs.init.outputs.node_version }}
           repository: ${{ matrix.repository }}
-          sonar_args: >
-            -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
-            -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
-            -Dsonar.organization=bcgov-nr
-            -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_${{ matrix.dir }}
-            -Dsonar.sources=src
-            -Dsonar.tests.inclusions=**/*spec.ts
-          sonar_token: ${{ matrix.name == 'backend' && secrets.SONAR_TOKEN_BACKEND || secrets.SONAR_TOKEN_FRONTEND }}
           triggers: ${{ matrix.triggers }}
-          supply_scan: ${{ matrix.supply_scan }}
           dep_scan: ${{ matrix.dep_scan }}
 
       - name: Verify trigger behavior

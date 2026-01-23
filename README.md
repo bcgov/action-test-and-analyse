@@ -142,9 +142,9 @@ jobs:
           triggers: ('frontend/' 'charts/frontend')
 ```
 
-# Example, Only Running Tests (No SonarCloud, Supply Chain Scanning Disabled, No Dependency/Export Analysis), No Triggers
+# Example, Only Running Tests (No SonarCloud, No Dependency/Export Analysis), No Triggers
 
-No triggers are provided so tests will always run.  SonarCloud is skipped, supply chain scanning is disabled, and dependency/export analysis is skipped.
+No triggers are provided so tests will always run.  SonarCloud is skipped, and dependency/export analysis is skipped. Supply chain scanning remains enabled by default (recommended).
 
 ```yaml
 jobs:
@@ -159,7 +159,7 @@ jobs:
             npm run test:cov
           dir: frontend
           node_version: "20"
-          supply_scan: false  # Disable supply chain scanning
+          # supply_scan defaults to true (enabled) - strongly discouraged to disable
           dep_scan: off  # Disable dependency analysis
 ```
 
@@ -245,9 +245,9 @@ This action supports supply chain attack detection using [@aikidosec/safe-chain]
 
 Supply chain scanning is enabled by default. No configuration is required - it will automatically scan packages during `npm ci` and other package manager commands.
 
-## How to Disable
+## ⚠️ Disabling Supply Chain Scanning (Not Recommended)
 
-If you need to disable supply chain scanning, set `supply_scan: false` in your workflow:
+⚠️ **WARNING**: Disabling supply chain scanning is dangerous and strongly discouraged. It leaves your project vulnerable to malicious packages, typosquatting, and supply chain attacks. Only disable if absolutely necessary and you understand the security risks. If you must disable, set `supply_scan: false` in your workflow:
 
 ```yaml
 - uses: bcgov/action-test-and-analyse@x.y.z
@@ -257,7 +257,7 @@ If you need to disable supply chain scanning, set `supply_scan: false` in your w
       npm run test:cov
     dir: frontend
     node_version: "20"
-    supply_scan: false  # Disable supply chain scanning
+    supply_scan: false  # ⚠️ DANGEROUS: Disables security scanning - not recommended
 ```
 
 When enabled, safe-chain will:
