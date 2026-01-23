@@ -206,7 +206,7 @@ runs:
 
         # Run knip with JSON output for annotations
         set +e
-        DOTENV_CONFIG_QUIET=true knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json 2>&1
+        DOTENV_CONFIG_QUIET=true knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
         KNIP_EXIT_CODE=$?
         set -e
 
