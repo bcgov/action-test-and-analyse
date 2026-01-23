@@ -68,7 +68,6 @@ jobs:
             dir: backend
             triggers: ('.')
             expected_triggered: true
-            supply_scan: false
             dep_scan: error
             test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
@@ -76,7 +75,6 @@ jobs:
             dir: backend
             triggers: ('backend/')
             expected_triggered: false
-            supply_scan: false
             dep_scan: error
             test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
@@ -84,21 +82,18 @@ jobs:
             dir: frontend
             triggers: ('.')
             expected_triggered: true
-            supply_scan: true
             dep_scan: warn
             test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: frontend-no-triggers
             dir: frontend
             expected_triggered: true
-            supply_scan: false
             dep_scan: off
             test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: waste-frontend
             dir: frontend
             expected_triggered: true
-            supply_scan: false
             dep_scan: warn
             test_command: echo "Good enough for testing knip!"
             repository: bcgov/nr-waste-plus
@@ -112,16 +107,7 @@ jobs:
           dir: ${{ matrix.dir }}
           node_version: ${{ needs.init.outputs.node_version }}
           repository: ${{ matrix.repository }}
-          sonar_args: >
-            -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
-            -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
-            -Dsonar.organization=bcgov-nr
-            -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
-            -Dsonar.sources=src
-            -Dsonar.tests.inclusions=**/*spec.ts
-          sonar_token: ${{ matrix.name == 'frontend-basic' && secrets.SONAR_TOKEN_FRONTEND || '' }}
           triggers: ${{ matrix.triggers }}
-          supply_scan: ${{ matrix.supply_scan }}
           dep_scan: ${{ matrix.dep_scan }}
 
       - name: Verify trigger behavior
