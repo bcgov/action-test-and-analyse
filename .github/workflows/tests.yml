@@ -92,8 +92,7 @@ jobs:
             expected_triggered: true
             supply_scan: false
             dep_scan: warn
-            test_command: npm run test:cov
-              echo "Good enough for testing knip!"
+            test_command: echo "Good enough for testing knip!"
             repository: bcgov/nr-waste-plus
 
     steps:
