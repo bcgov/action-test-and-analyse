@@ -189,11 +189,11 @@ runs:
 
     # If triggered and (dep or supply) enabled: run analysis tools
     - if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
+      working-directory: ${{ inputs.dir }}
       shell: bash
       run: |
         # Run Knip for dependency and export analysis
         set -e
-        cd "${{ github.workspace }}/${{ inputs.dir }}"
 
         # Clean up any previous Knip output files
         rm -f knip-output.json knip-error.log knip-summary.txt
@@ -207,13 +207,31 @@ runs:
 
         # Run knip with JSON output for annotations (stderr separate to avoid corrupting JSON)
         set +e
-        knip --dependencies --exports --reporter json ${KNIP_CONFIG} > knip-output.json 2> knip-error.log
+        DOTENV_CONFIG_QUIET=true knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json 2> knip-error.log
         KNIP_EXIT_CODE=$?
         set -e
 
+        # Check if JSON is in stderr instead of stdout (some Knip versions/plugins write JSON to stderr)
+        # Also check if stdout has content but needs validation
+        if [ -f knip-output.json ] && [ ! -s knip-output.json ] && [ -f knip-error.log ] && [ -s knip-error.log ]; then
+          # stdout is empty, check if stderr has valid JSON
+          if jq -e . knip-error.log >/dev/null 2>&1; then
+            # JSON is in stderr, move it to stdout file
+            mv knip-error.log knip-output.json
+            touch knip-error.log
+          fi
+        elif [ -f knip-output.json ] && [ -s knip-output.json ]; then
+          # stdout has content, ensure it's valid JSON (strip whitespace if needed)
+          if ! jq -e . knip-output.json >/dev/null 2>&1; then
+            # Try stripping whitespace and validating
+            jq -e . knip-output.json > knip-output-trimmed.json 2>/dev/null && mv knip-output-trimmed.json knip-output.json || rm -f knip-output-trimmed.json
+          fi
+        fi
+
         # Validate JSON before parsing (in case of non-JSON errors)
-        if [ "$KNIP_EXIT_CODE" -ne 0 ] && [ -f knip-output.json ]; then
-          if ! jq empty knip-output.json >/dev/null 2>&1; then
+        # Only treat as hard failure when exit code is 2 (actual crash), not 1 (issues found)
+        if [ "$KNIP_EXIT_CODE" -eq 2 ] && [ -f knip-output.json ]; then
+          if ! jq -e . knip-output.json >/dev/null 2>&1; then
             # Add summary for invalid JSON before exiting
             {
               echo "## ❌ Knip Tool Failure (Invalid JSON Output)"
@@ -221,6 +239,7 @@ runs:
               echo "Knip exited with code $KNIP_EXIT_CODE and produced output that is not valid JSON."
               echo "This indicates a tool failure rather than analysis results."
               echo ""
+
               if [ -f knip-error.log ]; then
                 echo "### Error Output"
                 echo "\`\`\`"
@@ -280,7 +299,7 @@ runs:
           # Capture detailed output for summary only when issues were found
           if [ $KNIP_EXIT_CODE -ne 0 ]; then
             set +e
-            DOTENV_CONFIG_QUIET=true knip --dependencies --exports ${SUMMARY_CONFIG} > knip-summary.txt 2> knip-error.log
+            knip --dependencies --exports ${SUMMARY_CONFIG} > knip-summary.txt 2>&1
             set -e
           fi
           # Add summary to step summary
@@ -317,7 +336,7 @@ runs:
         # Handle result
         # Check if we have valid JSON to distinguish tool failures from analysis results
         HAS_VALID_JSON=false
-        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
+        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq -e . knip-output.json >/dev/null 2>&1; then
           HAS_VALID_JSON=true
         fi
 
@@ -333,9 +352,39 @@ runs:
             echo "Running in error mode - workflow will exit"
             exit $KNIP_EXIT_CODE
           fi
+        elif [ $KNIP_EXIT_CODE -eq 1 ]; then
+          # Exit code 1 + invalid JSON = issues found but output corrupted/unparseable
+          # Still respect warn/error mode (stop hard in error mode)
+          {
+            echo "## ⚠️ Knip Found Issues (Output Corrupted)"
+            echo ""
+            echo "Knip reported issues (exit code 1) but the output could not be parsed as JSON."
+            echo "This may indicate plugin output mixed with JSON or other output issues."
+            echo ""
+            if [ -f knip-error.log ]; then
+              echo "### Error Output"
+              echo "\`\`\`"
+              cat knip-error.log
+              echo "\`\`\`"
+            fi
+            if [ -f knip-output.json ]; then
+              echo "### Output File"
+              echo "\`\`\`"
+              cat knip-output.json
+              echo "\`\`\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "⚠️  Knip found issues but output was corrupted/unparseable"
+          if [ "${{ inputs.dep_scan }}" = "warn" ]; then
+            echo "Running in warn mode - workflow will continue"
+            exit 0
+          else
+            echo "Running in error mode - workflow will exit"
+            exit $KNIP_EXIT_CODE
+          fi
         else
-          # No valid JSON with non-zero exit = tool failure (warn but continue)
-          # Add summary for tool failures
+          # Exit code 2+ = actual tool failure (warn but continue)
           {
             echo "## ❌ Knip Tool Failure"
             echo ""
