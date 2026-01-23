@@ -70,7 +70,7 @@ This is a GitHub Actions composite action, so testing is done through workflow e
 - Installed globally and initialized with `safe-chain setup-ci`
 - Must run before package installation commands
 - Should fail workflow if threats detected
-- Users can disable by setting `supply_scan: false`
+- ⚠️ Disabling is strongly discouraged - only for exceptional cases where security risks are understood
 
 ### Dependency Analysis (Knip)
 - Feature is opt-in via `dep_scan` input (default: `warn`)
