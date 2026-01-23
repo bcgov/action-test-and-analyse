@@ -150,6 +150,7 @@ runs:
         # Knip
         KNIP_VER=$(node -p "require('./package-lock.json').packages['node_modules/knip'].version")
         npm install -g "knip@${KNIP_VER}"
+        mkdir -p "${{ runner.temp }}"
         cp .knip.json "${{ runner.temp }}/.knip.json"
 
     # Checkout the target repository - SonarCloud requires a full clone
