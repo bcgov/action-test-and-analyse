@@ -137,6 +137,7 @@ runs:
         node-version: ${{ steps.versions.outputs.action_node_version }}
 
     - shell: bash
+      if: steps.diff.outputs.triggered == 'true'
       run: |
         # Install dependencies and files
         set -e
