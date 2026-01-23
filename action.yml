@@ -189,6 +189,8 @@ runs:
 
     # If triggered and (dep or supply) enabled: run analysis tools
     - if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
+      env:
+        DOTENV_CONFIG_QUIET: "true"
       working-directory: ${{ inputs.dir }}
       shell: bash
       run: |
