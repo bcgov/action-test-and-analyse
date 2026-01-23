@@ -211,102 +211,114 @@ runs:
         KNIP_EXIT_CODE=$?
         set -e
 
-        # Check if JSON is in stderr instead of stdout (some Knip versions/plugins write JSON to stderr)
-        if [ -f knip-output.json ] && [ ! -s knip-output.json ] && [ -f knip-error.log ] && [ -s knip-error.log ]; then
-          if jq -e . knip-error.log >/dev/null 2>&1; then
-            mv knip-error.log knip-output.json
-            touch knip-error.log
+        # Validate JSON before parsing (in case of non-JSON errors)
+        if [ "$KNIP_EXIT_CODE" -ne 0 ] && [ -f knip-output.json ]; then
+          if ! jq empty knip-output.json >/dev/null 2>&1; then
+            # Add summary for invalid JSON before exiting
+            {
+              echo "## ❌ Knip Tool Failure (Invalid JSON Output)"
+              echo ""
+              echo "Knip exited with code $KNIP_EXIT_CODE and produced output that is not valid JSON."
+              echo "This indicates a tool failure rather than analysis results."
+              echo ""
+              if [ -f knip-error.log ] && [ -s knip-error.log ]; then
+                echo "### Error Output"
+                echo "\`\`\`"
+                cat knip-error.log
+                echo "\`\`\`"
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+            
+            echo "::error::Knip failed with exit code $KNIP_EXIT_CODE and did not produce valid JSON"
+            if [ -f knip-error.log ] && [ -s knip-error.log ]; then
+              cat knip-error.log
+            fi
+            exit $KNIP_EXIT_CODE
           fi
         fi
 
         # Parse JSON and create annotations
-        # Try to parse JSON directly - if parsing succeeds, JSON is valid
-        if [ -f knip-output.json ] && [ -s knip-output.json ]; then
-          # Try to parse - if this succeeds, JSON is valid
-          if UNUSED_FILES=$(jq -r '.files | length // 0' knip-output.json 2>/dev/null); then
-            # JSON parsed successfully, continue
-            # Count dependencies and exports across all issues
-            UNUSED_DEPS=$(jq -r '[.issues[].dependencies[]?] | length' knip-output.json)
-            UNUSED_DEV_DEPS=$(jq -r '[.issues[].devDependencies[]?] | length' knip-output.json)
-            UNUSED_EXPORTS=$(jq -r '[.issues[].exports[]?] | length' knip-output.json)
+        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
+          # Count issues
+          UNUSED_FILES=$(jq -r '.files | length // 0' knip-output.json)
+          
+          # Count dependencies and exports across all issues
+          UNUSED_DEPS=$(jq -r '[.issues[].dependencies[]?] | length' knip-output.json)
+          UNUSED_DEV_DEPS=$(jq -r '[.issues[].devDependencies[]?] | length' knip-output.json)
+          UNUSED_EXPORTS=$(jq -r '[.issues[].exports[]?] | length' knip-output.json)
             
-            if [ "$UNUSED_FILES" -ne 0 ] || [ "$UNUSED_DEPS" -ne 0 ] || [ "$UNUSED_DEV_DEPS" -ne 0 ] || [ "$UNUSED_EXPORTS" -ne 0 ]; then
-              # Create annotations for unused files
-              if [ "$UNUSED_FILES" -ne 0 ]; then
-                jq -r --arg dir "${{ inputs.dir }}" '.files[]? | "::warning file=\($dir + "/" + .),line=1::Unused file"' knip-output.json
-              fi
-              # Create annotations for unused dependencies
-              if [ "$UNUSED_DEPS" -ne 0 ]; then
-                jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.dependencies != null and (.dependencies | length) > 0) | . as $issue | $issue.dependencies[]? | "::warning file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused dependency: \(.name)"' knip-output.json
-              fi
-              
-              # Create annotations for unused devDependencies
-              if [ "$UNUSED_DEV_DEPS" -ne 0 ]; then
-                jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.devDependencies != null and (.devDependencies | length) > 0) | . as $issue | $issue.devDependencies[]? | "::warning file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused devDependency: \(.name)"' knip-output.json
-              fi
+          if [ "$UNUSED_FILES" -ne 0 ] || [ "$UNUSED_DEPS" -ne 0 ] || [ "$UNUSED_DEV_DEPS" -ne 0 ] || [ "$UNUSED_EXPORTS" -ne 0 ]; then
             
-              # Create annotations for unused exports
-              if [ "$UNUSED_EXPORTS" -ne 0 ]; then
-                jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.exports != null and (.exports | length) > 0) | . as $issue | $issue.exports[]? | "::notice file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused export: \(.name)"' knip-output.json
-              fi
+            # Create annotations for unused files
+            if [ "$UNUSED_FILES" -ne 0 ]; then
+              jq -r --arg dir "${{ inputs.dir }}" '.files[]? | "::warning file=\($dir + "/" + .),line=1::Unused file"' knip-output.json
+            fi
+            # Create annotations for unused dependencies
+            if [ "$UNUSED_DEPS" -ne 0 ]; then
+              jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.dependencies != null and (.dependencies | length) > 0) | . as $issue | $issue.dependencies[]? | "::warning file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused dependency: \(.name)"' knip-output.json
             fi
             
-            # Run knip with default output for detailed summary (when issues found)
-            # Build config (suppress hints when using default config, same as JSON run)
-            if [ -n "${{ inputs.knip_config }}" ]; then
-              SUMMARY_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
-            else
-              SUMMARY_CONFIG="--config=${{ runner.temp }}/.knip.json --no-config-hints"
+            # Create annotations for unused devDependencies
+            if [ "$UNUSED_DEV_DEPS" -ne 0 ]; then
+              jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.devDependencies != null and (.devDependencies | length) > 0) | . as $issue | $issue.devDependencies[]? | "::warning file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused devDependency: \(.name)"' knip-output.json
             fi
             
-            # Capture detailed output for summary when issues are found (any count > 0)
-            # Always generate summary output to show full details including unresolved imports, config hints, etc.
-            if [ "$UNUSED_FILES" -ne 0 ] || [ "$UNUSED_DEPS" -ne 0 ] || [ "$UNUSED_DEV_DEPS" -ne 0 ] || [ "$UNUSED_EXPORTS" -ne 0 ] || [ $KNIP_EXIT_CODE -ne 0 ]; then
-              set +e
-              knip --dependencies --exports ${SUMMARY_CONFIG} > knip-summary.txt 2>&1
-              set -e
+            # Create annotations for unused exports
+            if [ "$UNUSED_EXPORTS" -ne 0 ]; then
+              jq -r --arg dir "${{ inputs.dir }}" '.issues[]? | select(.exports != null and (.exports | length) > 0) | . as $issue | $issue.exports[]? | "::notice file=\($dir + "/" + ($issue.file // "package.json")),line=\(.line // 1)::Unused export: \(.name)"' knip-output.json
             fi
-            
-            # Add summary to step summary (always show when JSON is valid, even when no issues)
-            {
-              echo "## 🔍 Knip Analysis Results"
-              echo ""
-              
-              # Summary counts
-              echo "| Category | Count |"
-              echo "|----------|-------|"
-              echo "| Unused files | $UNUSED_FILES |"
-              echo "| Unused dependencies | $UNUSED_DEPS |"
-              echo "| Unused devDependencies | $UNUSED_DEV_DEPS |"
-              echo "| Unused exports | $UNUSED_EXPORTS |"
-              echo ""
-              
-              # Full detailed output with hints (strip ANSI escape codes) - show when summary file exists
-              if [ -f knip-summary.txt ] && [ -s knip-summary.txt ]; then
-                echo "### 📋 Full Output"
-                echo "\`\`\`"
-                sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' knip-summary.txt
-                echo "\`\`\`"
-                echo ""
-              fi
-              
-              if [ $KNIP_EXIT_CODE -ne 0 ]; then
-                echo "⚠️ **Issues found** - See annotations in the Checks tab for details"
-              else
-                echo "✅ **No issues found**"
-              fi
-            } >> "$GITHUB_STEP_SUMMARY"
           fi
+            
+          # Run knip with default output for detailed summary (only when issues found)
+          # Build config (suppress hints when using default config, same as JSON run)
+          if [ -n "${{ inputs.knip_config }}" ]; then
+            SUMMARY_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
+          else
+            SUMMARY_CONFIG="--config=${{ runner.temp }}/.knip.json --no-config-hints"
+          fi
+          
+          # Capture detailed output for summary only when issues were found
+          if [ $KNIP_EXIT_CODE -ne 0 ]; then
+            set +e
+            knip --dependencies --exports ${SUMMARY_CONFIG} > knip-summary.txt 2>&1
+            set -e
+          fi
+          # Add summary to step summary
+          {
+            echo "## 🔍 Knip Analysis Results"
+            echo ""
+            
+            # Summary counts
+            echo "| Category | Count |"
+            echo "|----------|-------|"
+            echo "| Unused files | $UNUSED_FILES |"
+            echo "| Unused dependencies | $UNUSED_DEPS |"
+            echo "| Unused devDependencies | $UNUSED_DEV_DEPS |"
+            echo "| Unused exports | $UNUSED_EXPORTS |"
+            echo ""
+            
+            # Full detailed output with hints (strip ANSI escape codes) - only when generated
+            if [ -f knip-summary.txt ]; then
+              echo "### 📋 Full Output"
+              echo "\`\`\`"
+              sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' knip-summary.txt
+              echo "\`\`\`"
+              echo ""
+            fi
+            
+            if [ $KNIP_EXIT_CODE -ne 0 ]; then
+              echo "⚠️ **Issues found** - See annotations in the Checks tab for details"
+            else
+              echo "✅ **No issues found**"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
         fi
 
         # Handle result
-        # Check if we successfully parsed JSON (if UNUSED_FILES is set, JSON was valid)
+        # Check if we have valid JSON to distinguish tool failures from analysis results
         HAS_VALID_JSON=false
-        if [ -f knip-output.json ] && [ -s knip-output.json ]; then
-          # Try to parse - if it works, JSON is valid
-          if jq -e '.files' knip-output.json >/dev/null 2>&1; then
-            HAS_VALID_JSON=true
-          fi
+        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
+          HAS_VALID_JSON=true
         fi
 
         if [ $KNIP_EXIT_CODE -eq 0 ]; then
@@ -321,45 +333,15 @@ runs:
             echo "Running in error mode - workflow will exit"
             exit $KNIP_EXIT_CODE
           fi
-        elif [ $KNIP_EXIT_CODE -eq 1 ]; then
-          # Exit code 1 + invalid JSON = issues found but output corrupted/unparseable
-          # Still respect warn/error mode (stop hard in error mode)
-          {
-            echo "## ⚠️ Knip Found Issues (Output Corrupted)"
-            echo ""
-            echo "Knip reported issues (exit code 1) but the output could not be parsed as JSON."
-            echo "This may indicate plugin output mixed with JSON or other output issues."
-            echo ""
-            if [ -f knip-error.log ] && [ -s knip-error.log ]; then
-              echo "### Error Output"
-              echo "\`\`\`"
-              cat knip-error.log
-              echo "\`\`\`"
-            fi
-            if [ -f knip-output.json ] && [ -s knip-output.json ]; then
-              echo "### Output File"
-              echo "\`\`\`"
-              cat knip-output.json
-              echo "\`\`\`"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          echo "⚠️  Knip found issues but output was corrupted/unparseable"
-          if [ "${{ inputs.dep_scan }}" = "warn" ]; then
-            echo "Running in warn mode - workflow will continue"
-            exit 0
-          else
-            echo "Running in error mode - workflow will exit"
-            exit $KNIP_EXIT_CODE
-          fi
         else
-          # Exit code 2+ = actual tool failure (warn but continue)
+          # No valid JSON with non-zero exit = tool failure (warn but continue)
+          # Add summary for tool failures
           {
             echo "## ❌ Knip Tool Failure"
             echo ""
             echo "Knip was unable to complete the analysis. This indicates a tool failure, not analysis results."
             echo ""
-            if [ -f knip-error.log ] && [ -s knip-error.log ]; then
+            if [ -f knip-error.log ]; then
               echo "### Error Output"
               echo "\`\`\`"
               cat knip-error.log
@@ -368,7 +350,7 @@ runs:
           } >> "$GITHUB_STEP_SUMMARY"
           
           echo "::warning::Knip tool failure - unable to complete analysis (workflow will continue)"
-          if [ -f knip-error.log ] && [ -s knip-error.log ]; then
+          if [ -f knip-error.log ]; then
             echo "Error output:"
             cat knip-error.log
           fi
