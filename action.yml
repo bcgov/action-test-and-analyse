@@ -225,6 +225,12 @@ runs:
               echo "Knip exited with code $KNIP_EXIT_CODE and produced output that is not valid JSON."
               echo "This indicates a tool failure rather than analysis results."
               echo ""
+              if [ -f knip-output.json ]; then
+                echo "### Output"
+                echo "\`\`\`"
+                cat knip-output.json
+                echo "\`\`\`"
+              fi
               if [ -f knip-error.log ]; then
                 echo "### Error Output"
                 echo "\`\`\`"
