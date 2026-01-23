@@ -101,7 +101,7 @@ jobs:
             supply_scan: false
             dep_scan: error
             commands: |
-              git config --global --add safe.directory /__w/nr-waste-plus/nr-waste-plus
+              git config --global --add safe.directory ${{ github.workspace }}
               npm i
               npx playwright install-deps
               npx playwright install
