@@ -240,7 +240,7 @@ runs:
               echo "This indicates a tool failure rather than analysis results."
               echo ""
 
-              if [ -f knip-error.log ]; then
+              if [ -f knip-error.log ] && [ -s knip-error.log ]; then
                 echo "### Error Output"
                 echo "\`\`\`"
                 cat knip-error.log
@@ -249,7 +249,7 @@ runs:
             } >> "$GITHUB_STEP_SUMMARY"
             
             echo "::error::Knip failed with exit code $KNIP_EXIT_CODE and did not produce valid JSON"
-            if [ -f knip-error.log ]; then
+            if [ -f knip-error.log ] && [ -s knip-error.log ]; then
               cat knip-error.log
             fi
             exit $KNIP_EXIT_CODE
@@ -363,13 +363,13 @@ runs:
             echo "Knip reported issues (exit code 1) but the output could not be parsed as JSON."
             echo "This may indicate plugin output mixed with JSON or other output issues."
             echo ""
-            if [ -f knip-error.log ]; then
+            if [ -f knip-error.log ] && [ -s knip-error.log ]; then
               echo "### Error Output"
               echo "\`\`\`"
               cat knip-error.log
               echo "\`\`\`"
             fi
-            if [ -f knip-output.json ]; then
+            if [ -f knip-output.json ] && [ -s knip-output.json ]; then
               echo "### Output File"
               echo "\`\`\`"
               cat knip-output.json
@@ -392,7 +392,7 @@ runs:
             echo ""
             echo "Knip was unable to complete the analysis. This indicates a tool failure, not analysis results."
             echo ""
-            if [ -f knip-error.log ]; then
+            if [ -f knip-error.log ] && [ -s knip-error.log ]; then
               echo "### Error Output"
               echo "\`\`\`"
               cat knip-error.log
@@ -401,7 +401,7 @@ runs:
           } >> "$GITHUB_STEP_SUMMARY"
           
           echo "::warning::Knip tool failure - unable to complete analysis (workflow will continue)"
-          if [ -f knip-error.log ]; then
+          if [ -f knip-error.log ] && [ -s knip-error.log ]; then
             echo "Error output:"
             cat knip-error.log
           fi
