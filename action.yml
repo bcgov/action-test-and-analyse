@@ -92,33 +92,66 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         diff_branch: ${{ inputs.diff_branch }}
 
-    # If triggered and (dep or supply) enabled: prepare tools first
-    # Access action's own files using github.action_path (no checkout needed)
+    # Get action repository and ref from environment variables with fallbacks
+    - name: Get action repo and ref
+      if: steps.diff.outputs.triggered == 'true'
+      id: action_repo
+      shell: bash
+      run: |
+        ACTION_REF="${GITHUB_ACTION_REF:-${{ github.action_ref }}}"
+
+        # If still empty, extract from action_path (e.g., _actions/bcgov/action-test-and-analyse/temporary-branch/...)
+        if [ -z "$ACTION_REF" ]; then
+          if [[ "${{ github.action_path }}" =~ _actions/[^/]+/[^/]+/(.+) ]]; then
+            ACTION_REF="${BASH_REMATCH[1]}"
+            echo "Extracted ref from action_path: $ACTION_REF"
+          else
+            echo "::error::Could not determine action ref. action_path: ${{ github.action_path }}"
+            exit 1
+          fi
+        fi
+
+        echo "ref=$ACTION_REF" >> $GITHUB_OUTPUT
+        echo "Using ref: $ACTION_REF"
+
+    # Checkout the action (upstream) repo
+    - uses: actions/checkout@v6
+      if: steps.diff.outputs.triggered == 'true'
+      with:
+        repository: bcgov/action-test-and-analyse
+        ref: ${{ steps.action_repo.outputs.ref }}
+
+    - if: steps.diff.outputs.triggered == 'true'
+      id: versions
+      shell: bash
+      run: |
+        # Get Action Node Version
+        set -e
+
+        NODE_VER=$(grep -o '"node":\s*"[^"]*"' package.json | grep -o '"[^"]*"' | tail -1 | sed 's/[">=]//g' | cut -d. -f1)
+        echo "action_node_version=$NODE_VER" >> $GITHUB_OUTPUT
+
     # Setup node version (for tool installation, no cache yet - file doesn't exist)
     - uses: actions/setup-node@v6
       if: steps.diff.outputs.triggered == 'true'
       with:
-        node-version: ${{ inputs.node_version }}
+        node-version: ${{ steps.versions.outputs.action_node_version }}
 
-    - if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
-      shell: bash
+    - shell: bash
       run: |
-        # Setup safe-chain and/or knip
+        # Install dependencies and files
         set -e
 
-        # Install and initialize safe-chain
-        if [ "${{ inputs.supply_scan }}" != "false" ]; then
-          SAFE_CHAIN_VERSION=$(node -e "console.log(require('${{ github.action_path }}/package.json').dependencies['@aikidosec/safe-chain'])")
-          npm install -g "@aikidosec/safe-chain@$SAFE_CHAIN_VERSION"
-          safe-chain setup-ci
-        fi
+        # Safe-chain
+        SAFE_VER=$(node -p "require('./package-lock.json').packages['node_modules/@aikidosec/safe-chain'].version")
+        npm install -g "@aikidosec/safe-chain@${SAFE_VER}"
+        safe-chain setup-ci
 
-        # Install knip and copy default configuration to temporary directory
-        if [ "${{ inputs.dep_scan }}" != "off" ]; then
-          KNIP_VERSION=$(node -e "console.log(require('${{ github.action_path }}/package.json').dependencies['knip'])")
-          npm install -g "knip@$KNIP_VERSION"
-          cp "${{ github.action_path }}/.knip.json" "${{ runner.temp }}/.knip.json"
-        fi
+        # Knip
+        KNIP_VER=$(node -p "require('./package-lock.json').packages['node_modules/knip'].version")
+        npm install -g "knip@${KNIP_VER}"
+        mkdir -p "${{ runner.temp }}"
+        cp .knip.json "${{ runner.temp }}/.knip.json"
 
     # Checkout the target repository - SonarCloud requires a full clone
     - uses: actions/checkout@v6
@@ -156,12 +189,12 @@ runs:
 
     # If triggered and (dep or supply) enabled: run analysis tools
     - if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
+      working-directory: ${{ inputs.dir }}
       shell: bash
       run: |
         # Run Knip for dependency and export analysis
         set -e
-        cd "${{ github.workspace }}/${{ inputs.dir }}"
-        
+
         # Clean up any previous Knip output files
         rm -f knip-output.json knip-error.log knip-summary.txt
 
@@ -174,13 +207,36 @@ runs:
 
         # Run knip with JSON output for annotations (stderr separate to avoid corrupting JSON)
         set +e
-        knip --dependencies --exports --reporter json ${KNIP_CONFIG} > knip-output.json 2> knip-error.log
+        DOTENV_CONFIG_QUIET=true knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json 2> knip-error.log
         KNIP_EXIT_CODE=$?
         set -e
 
+        # Check if JSON is in stderr instead of stdout (some Knip versions/plugins write JSON to stderr)
+        # Also check if stdout has content but needs validation
+        if [ -f knip-output.json ] && [ ! -s knip-output.json ] && [ -f knip-error.log ] && [ -s knip-error.log ]; then
+          # stdout is empty, check if stderr has valid JSON
+          if jq -e . knip-error.log >/dev/null 2>&1; then
+            # JSON is in stderr, move it to stdout file
+            mv knip-error.log knip-output.json
+            touch knip-error.log
+          fi
+        elif [ -f knip-output.json ] && [ -s knip-output.json ]; then
+          # stdout has content, ensure it's valid JSON (strip whitespace if needed)
+          if ! jq -e . knip-output.json >/dev/null 2>&1; then
+            # Try stripping whitespace and validating - preserve original if cleanup fails
+            if jq -e . knip-output.json > knip-output-trimmed.json 2>/dev/null; then
+              mv knip-output-trimmed.json knip-output.json
+            else
+              rm -f knip-output-trimmed.json
+              # JSON is invalid, but don't fail yet - let validation below handle it
+            fi
+          fi
+        fi
+
         # Validate JSON before parsing (in case of non-JSON errors)
-        if [ "$KNIP_EXIT_CODE" -ne 0 ] && [ -f knip-output.json ]; then
-          if ! jq empty knip-output.json >/dev/null 2>&1; then
+        # Only treat as hard failure when exit code is 2 (actual crash), not 1 (issues found)
+        if [ "$KNIP_EXIT_CODE" -eq 2 ] && [ -f knip-output.json ]; then
+          if ! jq -e . knip-output.json >/dev/null 2>&1; then
             # Add summary for invalid JSON before exiting
             {
               echo "## ❌ Knip Tool Failure (Invalid JSON Output)"
@@ -188,7 +244,8 @@ runs:
               echo "Knip exited with code $KNIP_EXIT_CODE and produced output that is not valid JSON."
               echo "This indicates a tool failure rather than analysis results."
               echo ""
-              if [ -f knip-error.log ]; then
+
+              if [ -f knip-error.log ] && [ -s knip-error.log ]; then
                 echo "### Error Output"
                 echo "\`\`\`"
                 cat knip-error.log
@@ -197,7 +254,7 @@ runs:
             } >> "$GITHUB_STEP_SUMMARY"
             
             echo "::error::Knip failed with exit code $KNIP_EXIT_CODE and did not produce valid JSON"
-            if [ -f knip-error.log ]; then
+            if [ -f knip-error.log ] && [ -s knip-error.log ]; then
               cat knip-error.log
             fi
             exit $KNIP_EXIT_CODE
@@ -205,7 +262,27 @@ runs:
         fi
 
         # Parse JSON and create annotations
-        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
+        # Validate JSON - try multiple approaches to handle edge cases
+        JSON_VALID=false
+        if [ -f knip-output.json ] && [ -s knip-output.json ]; then
+          # Try standard validation first
+          if jq -e . knip-output.json >/dev/null 2>&1; then
+            JSON_VALID=true
+          else
+            # Try reading via stdin (handles BOM, encoding issues, etc.)
+            if jq -e . < knip-output.json >/dev/null 2>&1; then
+              # JSON is valid when read via stdin, rewrite it cleanly
+              if jq -e . < knip-output.json > knip-output-clean.json 2>/dev/null; then
+                mv knip-output-clean.json knip-output.json
+                JSON_VALID=true
+              else
+                rm -f knip-output-clean.json
+              fi
+            fi
+          fi
+        fi
+
+        if [ "$JSON_VALID" = "true" ]; then
           # Count issues
           UNUSED_FILES=$(jq -r '.files | length // 0' knip-output.json)
           
@@ -236,7 +313,7 @@ runs:
             fi
           fi
           
-          # Run knip with default output for detailed summary (only when issues found)
+          # Run knip with default output for detailed summary (when issues found)
           # Build config (suppress hints when using default config, same as JSON run)
           if [ -n "${{ inputs.knip_config }}" ]; then
             SUMMARY_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
@@ -244,13 +321,15 @@ runs:
             SUMMARY_CONFIG="--config=${{ runner.temp }}/.knip.json --no-config-hints"
           fi
           
-          # Capture detailed output for summary only when issues were found
-          if [ $KNIP_EXIT_CODE -ne 0 ]; then
+          # Capture detailed output for summary when issues are found (any count > 0)
+          # Always generate summary output to show full details including unresolved imports, config hints, etc.
+          if [ "$UNUSED_FILES" -ne 0 ] || [ "$UNUSED_DEPS" -ne 0 ] || [ "$UNUSED_DEV_DEPS" -ne 0 ] || [ "$UNUSED_EXPORTS" -ne 0 ] || [ $KNIP_EXIT_CODE -ne 0 ]; then
             set +e
             knip --dependencies --exports ${SUMMARY_CONFIG} > knip-summary.txt 2>&1
             set -e
           fi
-          # Add summary to step summary
+          
+          # Add summary to step summary (always show when JSON is valid, even when no issues)
           {
             echo "## 🔍 Knip Analysis Results"
             echo ""
@@ -264,8 +343,8 @@ runs:
             echo "| Unused exports | $UNUSED_EXPORTS |"
             echo ""
             
-            # Full detailed output with hints (strip ANSI escape codes) - only when generated
-            if [ -f knip-summary.txt ]; then
+            # Full detailed output with hints (strip ANSI escape codes) - show when summary file exists
+            if [ -f knip-summary.txt ] && [ -s knip-summary.txt ]; then
               echo "### 📋 Full Output"
               echo "\`\`\`"
               sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' knip-summary.txt
@@ -282,12 +361,9 @@ runs:
         fi
 
         # Handle result
-        # Check if we have valid JSON to distinguish tool failures from analysis results
-        HAS_VALID_JSON=false
-        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
-          HAS_VALID_JSON=true
-        fi
-        
+        # Use the JSON_VALID flag we set above
+        HAS_VALID_JSON=$JSON_VALID
+
         if [ $KNIP_EXIT_CODE -eq 0 ]; then
           echo "✅ Knip analysis complete - no unused dependencies or exports found"
         elif [ "$HAS_VALID_JSON" = "true" ]; then
@@ -300,15 +376,45 @@ runs:
             echo "Running in error mode - workflow will exit"
             exit $KNIP_EXIT_CODE
           fi
+        elif [ $KNIP_EXIT_CODE -eq 1 ]; then
+          # Exit code 1 + invalid JSON = issues found but output corrupted/unparseable
+          # Still respect warn/error mode (stop hard in error mode)
+          {
+            echo "## ⚠️ Knip Found Issues (Output Corrupted)"
+            echo ""
+            echo "Knip reported issues (exit code 1) but the output could not be parsed as JSON."
+            echo "This may indicate plugin output mixed with JSON or other output issues."
+            echo ""
+            if [ -f knip-error.log ] && [ -s knip-error.log ]; then
+              echo "### Error Output"
+              echo "\`\`\`"
+              cat knip-error.log
+              echo "\`\`\`"
+            fi
+            if [ -f knip-output.json ] && [ -s knip-output.json ]; then
+              echo "### Output File"
+              echo "\`\`\`"
+              cat knip-output.json
+              echo "\`\`\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "⚠️  Knip found issues but output was corrupted/unparseable"
+          if [ "${{ inputs.dep_scan }}" = "warn" ]; then
+            echo "Running in warn mode - workflow will continue"
+            exit 0
+          else
+            echo "Running in error mode - workflow will exit"
+            exit $KNIP_EXIT_CODE
+          fi
         else
-          # No valid JSON with non-zero exit = tool failure (warn but continue)
-          # Add summary for tool failures
+          # Exit code 2+ = actual tool failure (warn but continue)
           {
             echo "## ❌ Knip Tool Failure"
             echo ""
             echo "Knip was unable to complete the analysis. This indicates a tool failure, not analysis results."
             echo ""
-            if [ -f knip-error.log ]; then
+            if [ -f knip-error.log ] && [ -s knip-error.log ]; then
               echo "### Error Output"
               echo "\`\`\`"
               cat knip-error.log
@@ -317,7 +423,7 @@ runs:
           } >> "$GITHUB_STEP_SUMMARY"
           
           echo "::warning::Knip tool failure - unable to complete analysis (workflow will continue)"
-          if [ -f knip-error.log ]; then
+          if [ -f knip-error.log ] && [ -s knip-error.log ]; then
             echo "Error output:"
             cat knip-error.log
           fi
