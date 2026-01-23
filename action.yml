@@ -212,6 +212,9 @@ runs:
 
         # Parse JSON and create annotations using Node.js
         if [ -f knip-output.json ] && [ -s knip-output.json ]; then
+          # Set directory as environment variable for safe passing to Node.js
+          export KNIP_DIR="${{ inputs.dir }}"
+          
           # Count issues using Node.js
           UNUSED_FILES=$(node -p "const data = require('./knip-output.json'); (data.files || []).length")
           UNUSED_DEPS=$(node -p "const data = require('./knip-output.json'); (data.issues || []).flatMap(i => i.dependencies || []).length")
@@ -222,21 +225,21 @@ runs:
             
             # Create annotations for unused files
             if [ "$UNUSED_FILES" -ne 0 ]; then
-              node -e "const data = require('./knip-output.json'); const dir = '${{ inputs.dir }}'; (data.files || []).forEach(file => console.log(\`::warning file=\${dir}/\${file},line=1::Unused file\`));"
+              node -e "const data = require('./knip-output.json'); const dir = process.env.KNIP_DIR; (data.files || []).forEach(file => console.log(\`::warning file=\${dir}/\${file},line=1::Unused file\`));"
             fi
             # Create annotations for unused dependencies
             if [ "$UNUSED_DEPS" -ne 0 ]; then
-              node -e "const data = require('./knip-output.json'); const dir = '${{ inputs.dir }}'; (data.issues || []).forEach(issue => { (issue.dependencies || []).forEach(dep => console.log(\`::warning file=\${dir}/\${issue.file || 'package.json'},line=\${dep.line || 1}::Unused dependency: \${dep.name}\`)); });"
+              node -e "const data = require('./knip-output.json'); const dir = process.env.KNIP_DIR; (data.issues || []).forEach(issue => { (issue.dependencies || []).forEach(dep => console.log(\`::warning file=\${dir}/\${issue.file || 'package.json'},line=\${dep.line || 1}::Unused dependency: \${dep.name}\`)); });"
             fi
             
             # Create annotations for unused devDependencies
             if [ "$UNUSED_DEV_DEPS" -ne 0 ]; then
-              node -e "const data = require('./knip-output.json'); const dir = '${{ inputs.dir }}'; (data.issues || []).forEach(issue => { (issue.devDependencies || []).forEach(dep => console.log(\`::warning file=\${dir}/\${issue.file || 'package.json'},line=\${dep.line || 1}::Unused devDependency: \${dep.name}\`)); });"
+              node -e "const data = require('./knip-output.json'); const dir = process.env.KNIP_DIR; (data.issues || []).forEach(issue => { (issue.devDependencies || []).forEach(dep => console.log(\`::warning file=\${dir}/\${issue.file || 'package.json'},line=\${dep.line || 1}::Unused devDependency: \${dep.name}\`)); });"
             fi
             
             # Create annotations for unused exports
             if [ "$UNUSED_EXPORTS" -ne 0 ]; then
-              node -e "const data = require('./knip-output.json'); const dir = '${{ inputs.dir }}'; (data.issues || []).forEach(issue => { (issue.exports || []).forEach(exp => console.log(\`::notice file=\${dir}/\${issue.file || 'package.json'},line=\${exp.line || 1}::Unused export: \${exp.name}\`)); });"
+              node -e "const data = require('./knip-output.json'); const dir = process.env.KNIP_DIR; (data.issues || []).forEach(issue => { (issue.exports || []).forEach(exp => console.log(\`::notice file=\${dir}/\${issue.file || 'package.json'},line=\${exp.line || 1}::Unused export: \${exp.name}\`)); });"
             fi
           fi
             
