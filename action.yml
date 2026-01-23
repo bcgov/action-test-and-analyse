@@ -117,35 +117,15 @@ runs:
         repository: ${{ steps.action_repo.outputs.repository }}
         ref: ${{ steps.action_repo.outputs.ref }}
 
-    # Ger versions from package.json
-    - name: Get versions from package.json
-      if: steps.diff.outputs.triggered == 'true'
+    - if: steps.diff.outputs.triggered == 'true'
       id: versions
       shell: bash
       run: |
+        # Get Action Node Version
         set -e
-        NODE_VER=$(jq -r '.packages[""].engines.node' package-lock.json | sed 's/>=//' | cut -d. -f1)
-        KNIP_VER=$(jq -r '.packages["node_modules/knip"].version' package-lock.json)
-        SAFE_VER=$(jq -r '.packages["node_modules/@aikidosec/safe-chain"].version' package-lock.json)
+
+        NODE_VER=$(grep -o '"node":\s*"[^"]*"' package.json | grep -o '"[^"]*"' | tail -1 | sed 's/[">=]//g' | cut -d. -f1)
         echo "action_node_version=$NODE_VER" >> $GITHUB_OUTPUT
-        echo "knip_version=$KNIP_VER" >> $GITHUB_OUTPUT
-        echo "safechain_version=$SAFE_VER" >> $GITHUB_OUTPUT
-
-        # Troubleshooting
-        echo "action_node_version=$NODE_VER"
-        echo "knip_version=$KNIP_VER"
-        echo "safechain_version=$SAFE_VER"
-
-        ls -la
-        pwd
-
-        echo "action_repository=${{ github.action_repository }}"
-        echo "repository=${{ github.repository }}"
-        echo "action_ref=${{ github.action_ref }}"
-        echo "ref=${{ github.ref }}"
-        echo "GITHUB_ACTION_REPOSITORY=${GITHUB_ACTION_REPOSITORY}"
-        echo "GITHUB_ACTION_REF=${GITHUB_ACTION_REF}"
-        echo "GITHUB_REF=${GITHUB_REF}"
 
     # Setup node version (for tool installation, no cache yet - file doesn't exist)
     - uses: actions/setup-node@v6
@@ -160,11 +140,13 @@ runs:
         set -e
 
         # Safe-chain
-        npm install -g "@aikidosec/safe-chain@${{ steps.versions.outputs.safechain_version }}"
+        SAFE_VER=$(node -p "require('./package-lock.json').packages['node_modules/@aikidosec/safe-chain'].version")
+        npm install -g "@aikidosec/safe-chain@${SAFE_VER}"
         safe-chain setup-ci
 
         # Knip
-        npm install -g "knip@${{ steps.versions.outputs.knip_version }}"
+        KNIP_VER=$(node -p "require('./package-lock.json').packages['node_modules/knip'].version")
+        npm install -g "knip@${KNIP_VER}"
         cp .knip.json "${{ runner.temp }}/.knip.json"
 
     # Checkout the target repository - SonarCloud requires a full clone
