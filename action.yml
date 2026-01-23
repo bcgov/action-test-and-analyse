@@ -216,19 +216,26 @@ runs:
         set -e
 
         # Check if JSON is in stderr instead of stdout (some Knip versions/plugins write JSON to stderr)
+        # Also check if stdout has content but needs validation
         if [ -f knip-output.json ] && [ ! -s knip-output.json ] && [ -f knip-error.log ] && [ -s knip-error.log ]; then
           # stdout is empty, check if stderr has valid JSON
-          if jq empty knip-error.log >/dev/null 2>&1; then
+          if jq -e . knip-error.log >/dev/null 2>&1; then
             # JSON is in stderr, move it to stdout file
             mv knip-error.log knip-output.json
             touch knip-error.log
+          fi
+        elif [ -f knip-output.json ] && [ -s knip-output.json ]; then
+          # stdout has content, ensure it's valid JSON (strip whitespace if needed)
+          if ! jq -e . knip-output.json >/dev/null 2>&1; then
+            # Try stripping whitespace and validating
+            jq -e . knip-output.json > knip-output-trimmed.json 2>/dev/null && mv knip-output-trimmed.json knip-output.json || rm -f knip-output-trimmed.json
           fi
         fi
 
         # Validate JSON before parsing (in case of non-JSON errors)
         # Only treat as hard failure when exit code is 2 (actual crash), not 1 (issues found)
         if [ "$KNIP_EXIT_CODE" -eq 2 ] && [ -f knip-output.json ]; then
-          if ! jq empty knip-output.json >/dev/null 2>&1; then
+          if ! jq -e . knip-output.json >/dev/null 2>&1; then
             # Add summary for invalid JSON before exiting
             {
               echo "## ❌ Knip Tool Failure (Invalid JSON Output)"
@@ -259,7 +266,7 @@ runs:
         fi
 
         # Parse JSON and create annotations
-        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
+        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq -e . knip-output.json >/dev/null 2>&1; then
           # Count issues
           UNUSED_FILES=$(jq -r '.files | length // 0' knip-output.json)
           
@@ -338,7 +345,7 @@ runs:
         # Handle result
         # Check if we have valid JSON to distinguish tool failures from analysis results
         HAS_VALID_JSON=false
-        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
+        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq -e . knip-output.json >/dev/null 2>&1; then
           HAS_VALID_JSON=true
         fi
 
@@ -407,7 +414,7 @@ runs:
           fi
         fi
 
-    # Fix - Clone for action.yml and other verifications
-    - name: Checkout Action repo to pass tests
-      if: always() && inputs.repository != github.repository
-      uses: actions/checkout@v6
+    # # Fix - Clone for action.yml and other verifications
+    # - name: Checkout Action repo to pass tests
+    #   if: always() && inputs.repository != github.repository
+    #   uses: actions/checkout@v6
