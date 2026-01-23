@@ -141,7 +141,7 @@ This is a GitHub Actions composite action, so testing is done through workflow e
 - `knip` - For dependency/export analysis (warn mode by default, installed globally)
 
 ### System Tools
-- `jq` - For JSON parsing (system tool, available on GitHub-hosted runners)
+- Node.js - For JSON parsing (uses require() and node -p/node -e commands)
 
 ## Renovate Configuration
 
