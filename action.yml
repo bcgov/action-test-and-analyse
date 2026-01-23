@@ -297,13 +297,14 @@ runs:
           fi
           
           # Capture detailed output for summary when issues are found (any count > 0)
+          # Always generate summary output to show full details including unresolved imports, config hints, etc.
           if [ "$UNUSED_FILES" -ne 0 ] || [ "$UNUSED_DEPS" -ne 0 ] || [ "$UNUSED_DEV_DEPS" -ne 0 ] || [ "$UNUSED_EXPORTS" -ne 0 ] || [ $KNIP_EXIT_CODE -ne 0 ]; then
             set +e
             knip --dependencies --exports ${SUMMARY_CONFIG} > knip-summary.txt 2>&1
             set -e
           fi
           
-          # Add summary to step summary (always show, even when no issues)
+          # Add summary to step summary (always show when JSON is valid, even when no issues)
           {
             echo "## 🔍 Knip Analysis Results"
             echo ""
@@ -317,7 +318,7 @@ runs:
             echo "| Unused exports | $UNUSED_EXPORTS |"
             echo ""
             
-            # Full detailed output with hints (strip ANSI escape codes) - show when issues found
+            # Full detailed output with hints (strip ANSI escape codes) - show when summary file exists
             if [ -f knip-summary.txt ] && [ -s knip-summary.txt ]; then
               echo "### 📋 Full Output"
               echo "\`\`\`"
