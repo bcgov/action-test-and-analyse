@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [backend, frontend-merge, frontend-pr, frontend-full-scan]
+        name: [backend, frontend-merge, frontend-pr, frontend-full-scan, waste]
         include:
           - name: backend
             dir: backend
@@ -63,27 +63,32 @@ jobs:
             expected_triggered: false
             supply_scan: false
             dep_scan: error
+            repository: bcgov/quickstart-openshift
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
             expected_triggered: true
             dep_scan: warn
+            repository: bcgov/quickstart-openshift
           - name: frontend-pr
             dir: frontend
             expected_triggered: true
             supply_scan: true
             dep_scan: off
+            repository: bcgov/quickstart-openshift
           - name: frontend-full-scan
             dir: frontend
             triggers: ('.')
             expected_triggered: true
             supply_scan: true
             dep_scan: warn
-          - name: nr-waste-plus-frontend
+            repository: bcgov/quickstart-openshift
+          - name: waste
             dir: frontend
             expected_triggered: true
             supply_scan: false
             dep_scan: error
+            repository: bcgov/nr-waste-plus
 
     steps:
       - id: action
@@ -94,7 +99,7 @@ jobs:
             npm run test:cov
           dir: ${{ matrix.dir }}
           node_version: ${{ needs.init.outputs.node_version }}
-          repository: bcgov/quickstart-openshift
+          repository: ${{ matrix.repository }}
           sonar_args: >
             -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
