@@ -101,11 +101,8 @@ jobs:
             supply_scan: false
             dep_scan: error
             commands: |
-              git config --global --add safe.directory /__w/action-test-and-analyse/action-test-and-analyse
               npm i
-              npx playwright install-deps
-              npx playwright install
-              npm run test:coverage
+              echo "Good enough for testing knip!"
             repository: bcgov/nr-waste-plus
 
     steps:
