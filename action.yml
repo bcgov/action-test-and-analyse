@@ -104,7 +104,7 @@ runs:
         # Setup safe-chain and/or knip
         set -e
 
-        # Get action files: download from API (works for all ref types) or use action_path as fallback
+        # Download action files from GitHub API (works for all ref types: branches, tags, SHAs)
         # Extract ref from action path pattern: .../_actions/owner/repo/ref, default to 'main'
         ACTION_REF="main"
         if [[ "${{ github.action_path }}" =~ _actions/[^/]+/[^/]+/(.+) ]]; then
@@ -114,23 +114,17 @@ runs:
         ACTION_FILES_DIR="${{ runner.temp }}/action-files"
         mkdir -p "$ACTION_FILES_DIR"
         
-        # Try to download from API (works for branches, tags, and SHAs)
-        if curl -s -f -o "$ACTION_FILES_DIR/package.json" \
-          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/package.json" 2>/dev/null; then
-          ACTION_PACKAGE_JSON="$ACTION_FILES_DIR/package.json"
-          # Download .knip.json directly to final location
-          curl -s -f -o "${{ runner.temp }}/.knip.json" \
-            "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/.knip.json" 2>/dev/null || true
-        elif [ -f "${{ github.action_path }}/package.json" ]; then
-          # Fallback to action_path (works for tags/commits)
-          ACTION_PACKAGE_JSON="${{ github.action_path }}/package.json"
-          # Copy .knip.json from action_path if available
-          [ -f "${{ github.action_path }}/.knip.json" ] && \
-            cp "${{ github.action_path }}/.knip.json" "${{ runner.temp }}/.knip.json"
-        else
-          echo "::error::Cannot find action package.json"
+        # Download package.json (required - fail if unavailable)
+        curl -s -f -o "$ACTION_FILES_DIR/package.json" \
+          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/package.json" || {
+          echo "::error::Failed to download package.json from GitHub API for ref: $ACTION_REF"
           exit 1
-        fi
+        }
+        ACTION_PACKAGE_JSON="$ACTION_FILES_DIR/package.json"
+        
+        # Download .knip.json (optional - knip has defaults if missing)
+        curl -s -f -o "${{ runner.temp }}/.knip.json" \
+          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/.knip.json" 2>/dev/null || true
 
         # Install and initialize safe-chain
         if [ "${{ inputs.supply_scan }}" != "false" ]; then
