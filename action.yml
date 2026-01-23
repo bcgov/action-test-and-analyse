@@ -212,77 +212,16 @@ runs:
         set -e
 
         # Check if JSON is in stderr instead of stdout (some Knip versions/plugins write JSON to stderr)
-        # Also check if stdout has content but needs validation
         if [ -f knip-output.json ] && [ ! -s knip-output.json ] && [ -f knip-error.log ] && [ -s knip-error.log ]; then
-          # stdout is empty, check if stderr has valid JSON
           if jq -e . knip-error.log >/dev/null 2>&1; then
-            # JSON is in stderr, move it to stdout file
             mv knip-error.log knip-output.json
             touch knip-error.log
           fi
-        elif [ -f knip-output.json ] && [ -s knip-output.json ]; then
-          # stdout has content, ensure it's valid JSON (strip whitespace if needed)
-          if ! jq -e . knip-output.json >/dev/null 2>&1; then
-            # Try stripping whitespace and validating - preserve original if cleanup fails
-            if jq -e . knip-output.json > knip-output-trimmed.json 2>/dev/null; then
-              mv knip-output-trimmed.json knip-output.json
-            else
-              rm -f knip-output-trimmed.json
-              # JSON is invalid, but don't fail yet - let validation below handle it
-            fi
-          fi
         fi
 
-        # Validate JSON before parsing (in case of non-JSON errors)
-        # Only treat as hard failure when exit code is 2 (actual crash), not 1 (issues found)
-        if [ "$KNIP_EXIT_CODE" -eq 2 ] && [ -f knip-output.json ]; then
-          if ! jq -e . knip-output.json >/dev/null 2>&1; then
-            # Add summary for invalid JSON before exiting
-            {
-              echo "## ❌ Knip Tool Failure (Invalid JSON Output)"
-              echo ""
-              echo "Knip exited with code $KNIP_EXIT_CODE and produced output that is not valid JSON."
-              echo "This indicates a tool failure rather than analysis results."
-              echo ""
-
-              if [ -f knip-error.log ] && [ -s knip-error.log ]; then
-                echo "### Error Output"
-                echo "\`\`\`"
-                cat knip-error.log
-                echo "\`\`\`"
-              fi
-            } >> "$GITHUB_STEP_SUMMARY"
-            
-            echo "::error::Knip failed with exit code $KNIP_EXIT_CODE and did not produce valid JSON"
-            if [ -f knip-error.log ] && [ -s knip-error.log ]; then
-              cat knip-error.log
-            fi
-            exit $KNIP_EXIT_CODE
-          fi
-        fi
-
-        # Parse JSON and create annotations
-        # Validate JSON - try multiple approaches to handle edge cases
-        JSON_VALID=false
-        if [ -f knip-output.json ] && [ -s knip-output.json ]; then
-          # Try standard validation first
-          if jq -e . knip-output.json >/dev/null 2>&1; then
-            JSON_VALID=true
-          else
-            # Try reading via stdin (handles BOM, encoding issues, etc.)
-            if jq -e . < knip-output.json >/dev/null 2>&1; then
-              # JSON is valid when read via stdin, rewrite it cleanly
-              if jq -e . < knip-output.json > knip-output-clean.json 2>/dev/null; then
-                mv knip-output-clean.json knip-output.json
-                JSON_VALID=true
-              else
-                rm -f knip-output-clean.json
-              fi
-            fi
-          fi
-        fi
-
-        if [ "$JSON_VALID" = "true" ]; then
+        # Parse JSON and create annotations - simple validation
+        # Check if file exists, has content, and is valid JSON
+        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq -e . knip-output.json >/dev/null 2>&1; then
           # Count issues
           UNUSED_FILES=$(jq -r '.files | length // 0' knip-output.json)
           
@@ -361,8 +300,11 @@ runs:
         fi
 
         # Handle result
-        # Use the JSON_VALID flag we set above
-        HAS_VALID_JSON=$JSON_VALID
+        # Check if we have valid JSON to distinguish tool failures from analysis results
+        HAS_VALID_JSON=false
+        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq -e . knip-output.json >/dev/null 2>&1; then
+          HAS_VALID_JSON=true
+        fi
 
         if [ $KNIP_EXIT_CODE -eq 0 ]; then
           echo "✅ Knip analysis complete - no unused dependencies or exports found"
