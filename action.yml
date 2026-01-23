@@ -257,7 +257,7 @@ runs:
         fi
 
         # Parse JSON and create annotations
-        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
+        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq -e . knip-output.json >/dev/null 2>&1; then
           # Count issues
           UNUSED_FILES=$(jq -r '.files | length // 0' knip-output.json)
           
@@ -288,7 +288,7 @@ runs:
             fi
           fi
           
-          # Run knip with default output for detailed summary (only when issues found)
+          # Run knip with default output for detailed summary (when issues found)
           # Build config (suppress hints when using default config, same as JSON run)
           if [ -n "${{ inputs.knip_config }}" ]; then
             SUMMARY_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
@@ -296,13 +296,14 @@ runs:
             SUMMARY_CONFIG="--config=${{ runner.temp }}/.knip.json --no-config-hints"
           fi
           
-          # Capture detailed output for summary only when issues were found
-          if [ $KNIP_EXIT_CODE -ne 0 ]; then
+          # Capture detailed output for summary when issues are found (any count > 0)
+          if [ "$UNUSED_FILES" -ne 0 ] || [ "$UNUSED_DEPS" -ne 0 ] || [ "$UNUSED_DEV_DEPS" -ne 0 ] || [ "$UNUSED_EXPORTS" -ne 0 ] || [ $KNIP_EXIT_CODE -ne 0 ]; then
             set +e
             knip --dependencies --exports ${SUMMARY_CONFIG} > knip-summary.txt 2>&1
             set -e
           fi
-          # Add summary to step summary
+          
+          # Add summary to step summary (always show, even when no issues)
           {
             echo "## 🔍 Knip Analysis Results"
             echo ""
@@ -316,8 +317,8 @@ runs:
             echo "| Unused exports | $UNUSED_EXPORTS |"
             echo ""
             
-            # Full detailed output with hints (strip ANSI escape codes) - only when generated
-            if [ -f knip-summary.txt ]; then
+            # Full detailed output with hints (strip ANSI escape codes) - show when issues found
+            if [ -f knip-summary.txt ] && [ -s knip-summary.txt ]; then
               echo "### 📋 Full Output"
               echo "\`\`\`"
               sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' knip-summary.txt
