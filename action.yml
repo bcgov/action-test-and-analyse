@@ -215,6 +215,9 @@ runs:
         KNIP_EXIT_CODE=$?
         set -e
 
+        ls -la
+        pwd
+
         # Validate JSON before parsing (in case of non-JSON errors)
         if [ "$KNIP_EXIT_CODE" -ne 0 ] && [ -f knip-output.json ]; then
           if ! jq empty knip-output.json >/dev/null 2>&1; then
@@ -225,12 +228,12 @@ runs:
               echo "Knip exited with code $KNIP_EXIT_CODE and produced output that is not valid JSON."
               echo "This indicates a tool failure rather than analysis results."
               echo ""
-              if [ -f knip-output.json ]; then
-                echo "### Output"
-                echo "\`\`\`"
-                cat knip-output.json
-                echo "\`\`\`"
-              fi
+
+              echo "### Output"
+              echo "\`\`\`"
+              cat knip-output.json
+              echo "\`\`\`"
+
               if [ -f knip-error.log ]; then
                 echo "### Error Output"
                 echo "\`\`\`"
