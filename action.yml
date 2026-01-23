@@ -90,7 +90,7 @@ runs:
       uses: bcgov/action-diff-triggers@a4753d53614cac4eb417cd35b05e0e401a76fc9d # v1.0.0
       with:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
-        diff_branch: ${{ inputs.diff_branch }}
+        ref: ${{ inputs.diff_branch }}
 
     # Get action repository and ref from environment variables with fallbacks
     - name: Get action repo and ref
