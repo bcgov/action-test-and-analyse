@@ -196,7 +196,7 @@ runs:
         set -e
 
         # Clean up any previous Knip output files
-        rm -f knip-output.json knip-error.log knip-summary.txt
+        rm -f knip-output.json knip-summary.txt
 
         # Set config file (suppress hints when using default config)
         if [ -n "${{ inputs.knip_config }}" ]; then
@@ -205,102 +205,14 @@ runs:
           KNIP_CONFIG="--config=${{ runner.temp }}/.knip.json --no-config-hints"
         fi
 
-        # Run knip with JSON output for annotations (stderr separate to avoid corrupting JSON)
+        # Run knip with JSON output for annotations
         set +e
-        DOTENV_CONFIG_QUIET=true knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json 2> knip-error.log
+        DOTENV_CONFIG_QUIET=true knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json 2>&1
         KNIP_EXIT_CODE=$?
         set -e
 
-        # Debug: Show file status and content
-        echo "=== DEBUG: Knip Output Files ==="
-        echo "KNIP_EXIT_CODE: $KNIP_EXIT_CODE"
-        if [ -f knip-output.json ]; then
-          echo "knip-output.json exists, size: $(wc -c < knip-output.json) bytes"
-          echo "First 500 chars of knip-output.json:"
-          head -c 500 knip-output.json || true
-          echo ""
-          echo "Last 500 chars of knip-output.json:"
-          tail -c 500 knip-output.json || true
-          echo ""
-          echo "jq validation attempt:"
-          jq empty knip-output.json 2>&1 || echo "jq validation FAILED with exit code: $?"
-        else
-          echo "knip-output.json does NOT exist"
-        fi
-        if [ -f knip-error.log ]; then
-          echo "knip-error.log exists, size: $(wc -c < knip-error.log) bytes"
-          if [ -s knip-error.log ]; then
-            echo "knip-error.log content:"
-            cat knip-error.log
-          else
-            echo "knip-error.log is empty"
-          fi
-        else
-          echo "knip-error.log does NOT exist"
-        fi
-        echo "=== END DEBUG ==="
-
-        # Validate JSON before parsing (in case of non-JSON errors)
-        if [ "$KNIP_EXIT_CODE" -ne 0 ] && [ -f knip-output.json ]; then
-          if ! jq empty knip-output.json >/dev/null 2>&1; then
-            # Add summary for invalid JSON before exiting
-            {
-              echo "## ❌ Knip Tool Failure (Invalid JSON Output)"
-              echo ""
-              echo "Knip exited with code $KNIP_EXIT_CODE and produced output that is not valid JSON."
-              echo "This indicates a tool failure rather than analysis results."
-              echo ""
-              echo "### Debug Information"
-              echo "File size: $(wc -c < knip-output.json) bytes"
-              echo ""
-              echo "First 1000 characters of output:"
-              echo "\`\`\`"
-              head -c 1000 knip-output.json
-              echo "\`\`\`"
-              echo ""
-              echo "Last 1000 characters of output:"
-              echo "\`\`\`"
-              tail -c 1000 knip-output.json
-              echo "\`\`\`"
-              echo ""
-              if [ -f knip-error.log ] && [ -s knip-error.log ]; then
-                echo "### Error Output"
-                echo "\`\`\`"
-                cat knip-error.log
-                echo "\`\`\`"
-              fi
-            } >> "$GITHUB_STEP_SUMMARY"
-            
-            echo "::error::Knip failed with exit code $KNIP_EXIT_CODE and did not produce valid JSON"
-            if [ -f knip-error.log ] && [ -s knip-error.log ]; then
-              cat knip-error.log
-            fi
-            exit $KNIP_EXIT_CODE
-          fi
-        fi
-
         # Parse JSON and create annotations
-        echo "=== DEBUG: Attempting to parse JSON ==="
-        if [ -f knip-output.json ]; then
-          echo "knip-output.json exists"
-          if [ -s knip-output.json ]; then
-            echo "knip-output.json is not empty"
-            if jq empty knip-output.json >/dev/null 2>&1; then
-              echo "jq validation PASSED"
-            else
-              echo "jq validation FAILED"
-              echo "jq error output:"
-              jq empty knip-output.json 2>&1 || true
-            fi
-          else
-            echo "knip-output.json is EMPTY"
-          fi
-        else
-          echo "knip-output.json does NOT exist"
-        fi
-        echo "=== END DEBUG ==="
-        
-        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
+        if [ -f knip-output.json ] && [ -s knip-output.json ]; then
           # Count issues
           UNUSED_FILES=$(jq -r '.files | length // 0' knip-output.json)
           
@@ -377,16 +289,10 @@ runs:
         fi
 
         # Handle result
-        # Check if we have valid JSON to distinguish tool failures from analysis results
-        HAS_VALID_JSON=false
-        if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
-          HAS_VALID_JSON=true
-        fi
-
         if [ $KNIP_EXIT_CODE -eq 0 ]; then
           echo "✅ Knip analysis complete - no unused dependencies or exports found"
-        elif [ "$HAS_VALID_JSON" = "true" ]; then
-          # Valid JSON with non-zero exit = analysis found issues (respect warn/error mode)
+        else
+          # Non-zero exit = analysis found issues (respect warn/error mode)
           echo "⚠️  Knip found issues"
           if [ "${{ inputs.dep_scan }}" = "warn" ]; then
             echo "Running in warn mode - workflow will continue"
@@ -394,27 +300,6 @@ runs:
           else
             echo "Running in error mode - workflow will exit"
             exit $KNIP_EXIT_CODE
-          fi
-        else
-          # No valid JSON with non-zero exit = tool failure (warn but continue)
-          # Add summary for tool failures
-          {
-            echo "## ❌ Knip Tool Failure"
-            echo ""
-            echo "Knip was unable to complete the analysis. This indicates a tool failure, not analysis results."
-            echo ""
-            if [ -f knip-error.log ]; then
-              echo "### Error Output"
-              echo "\`\`\`"
-              cat knip-error.log
-              echo "\`\`\`"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-          
-          echo "::warning::Knip tool failure - unable to complete analysis (workflow will continue)"
-          if [ -f knip-error.log ]; then
-            echo "Error output:"
-            cat knip-error.log
           fi
         fi
 
