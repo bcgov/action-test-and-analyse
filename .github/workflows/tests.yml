@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [backend, frontend-merge, frontend-pr, frontend-full-scan, waste]
+        name: [backend, frontend, frontend-pr, frontend-full-scan, waste]
         include:
           - name: backend
             dir: backend
