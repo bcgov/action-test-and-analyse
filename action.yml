@@ -118,14 +118,15 @@ runs:
         if curl -s -f -o "$ACTION_FILES_DIR/package.json" \
           "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/package.json" 2>/dev/null; then
           ACTION_PACKAGE_JSON="$ACTION_FILES_DIR/package.json"
-          ACTION_ROOT="$ACTION_FILES_DIR"
-          # Also download .knip.json if available
-          curl -s -f -o "$ACTION_FILES_DIR/.knip.json" \
+          # Download .knip.json directly to final location
+          curl -s -f -o "${{ runner.temp }}/.knip.json" \
             "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/.knip.json" 2>/dev/null || true
         elif [ -f "${{ github.action_path }}/package.json" ]; then
           # Fallback to action_path (works for tags/commits)
           ACTION_PACKAGE_JSON="${{ github.action_path }}/package.json"
-          ACTION_ROOT="${{ github.action_path }}"
+          # Copy .knip.json from action_path if available
+          [ -f "${{ github.action_path }}/.knip.json" ] && \
+            cp "${{ github.action_path }}/.knip.json" "${{ runner.temp }}/.knip.json"
         else
           echo "::error::Cannot find action package.json"
           exit 1
@@ -138,11 +139,10 @@ runs:
           safe-chain setup-ci
         fi
 
-        # Install knip and copy default configuration to temporary directory
+        # Install knip (configuration already in place from download/copy above)
         if [ "${{ inputs.dep_scan }}" != "off" ]; then
           KNIP_VERSION=$(node -e "console.log(require('$ACTION_PACKAGE_JSON').dependencies['knip'])")
           npm install -g "knip@$KNIP_VERSION"
-          [ -f "$ACTION_ROOT/.knip.json" ] && cp "$ACTION_ROOT/.knip.json" "${{ runner.temp }}/.knip.json"
         fi
 
     # Checkout the target repository - SonarCloud requires a full clone
