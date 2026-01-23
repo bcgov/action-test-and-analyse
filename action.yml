@@ -215,31 +215,174 @@ runs:
           # Set directory as environment variable for safe passing to Node.js
           export KNIP_DIR="${{ inputs.dir }}"
           
-          # Count issues using Node.js
-          UNUSED_FILES=$(node -p "const data = require('./knip-output.json'); (data.files || []).length")
-          UNUSED_DEPS=$(node -p "const data = require('./knip-output.json'); (data.issues || []).flatMap(i => i.dependencies || []).length")
-          UNUSED_DEV_DEPS=$(node -p "const data = require('./knip-output.json'); (data.issues || []).flatMap(i => i.devDependencies || []).length")
-          UNUSED_EXPORTS=$(node -p "const data = require('./knip-output.json'); (data.issues || []).flatMap(i => i.exports || []).length")
+          # Validate and parse JSON with error handling
+          PARSE_ERROR=$(node -e "
+            try {
+              const fs = require('fs');
+              const content = fs.readFileSync('./knip-output.json', 'utf8');
+              if (!content.trim()) {
+                console.error('ERROR_EMPTY');
+                process.exit(1);
+              }
+              const data = JSON.parse(content);
+              if (!data || typeof data !== 'object') {
+                console.error('ERROR_INVALID');
+                process.exit(1);
+              }
+              console.log('OK');
+            } catch (error) {
+              if (error.code === 'ENOENT') {
+                console.error('ERROR_NOT_FOUND');
+              } else if (error instanceof SyntaxError) {
+                console.error('ERROR_INVALID_JSON: ' + error.message);
+              } else {
+                console.error('ERROR_PARSE: ' + error.message);
+              }
+              process.exit(1);
+            }
+          " 2>&1)
+          
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to parse Knip JSON output"
+            case "$PARSE_ERROR" in
+              *ERROR_NOT_FOUND*)
+                echo "::error::knip-output.json file not found. Knip may have failed to generate output."
+                ;;
+              *ERROR_EMPTY*)
+                echo "::error::knip-output.json file is empty. Knip may have produced no output."
+                ;;
+              *ERROR_INVALID_JSON*)
+                echo "::error::Invalid JSON format in knip-output.json. Check if Knip produced error output."
+                echo "::error::$PARSE_ERROR"
+                ;;
+              *)
+                echo "::error::JSON parsing failed: $PARSE_ERROR"
+                ;;
+            esac
+            echo "⚠️  Skipping Knip analysis due to JSON parsing error"
+            exit 0
+          fi
+          
+          # Count issues using Node.js with error handling
+          set +e
+          UNUSED_FILES=$(node -e "
+            try {
+              const data = require('./knip-output.json');
+              console.log((data.files || []).length);
+            } catch (error) {
+              console.error('::error::Failed to parse files from Knip output: ' + error.message);
+              process.exit(1);
+            }
+          " 2>&1)
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to count unused files"
+            UNUSED_FILES=0
+          fi
+          
+          UNUSED_DEPS=$(node -e "
+            try {
+              const data = require('./knip-output.json');
+              console.log((data.issues || []).flatMap(i => i.dependencies || []).length);
+            } catch (error) {
+              console.error('::error::Failed to parse dependencies from Knip output: ' + error.message);
+              process.exit(1);
+            }
+          " 2>&1)
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to count unused dependencies"
+            UNUSED_DEPS=0
+          fi
+          
+          UNUSED_DEV_DEPS=$(node -e "
+            try {
+              const data = require('./knip-output.json');
+              console.log((data.issues || []).flatMap(i => i.devDependencies || []).length);
+            } catch (error) {
+              console.error('::error::Failed to parse devDependencies from Knip output: ' + error.message);
+              process.exit(1);
+            }
+          " 2>&1)
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to count unused devDependencies"
+            UNUSED_DEV_DEPS=0
+          fi
+          
+          UNUSED_EXPORTS=$(node -e "
+            try {
+              const data = require('./knip-output.json');
+              console.log((data.issues || []).flatMap(i => i.exports || []).length);
+            } catch (error) {
+              console.error('::error::Failed to parse exports from Knip output: ' + error.message);
+              process.exit(1);
+            }
+          " 2>&1)
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to count unused exports"
+            UNUSED_EXPORTS=0
+          fi
+          set -e
             
           if [ "$UNUSED_FILES" -ne 0 ] || [ "$UNUSED_DEPS" -ne 0 ] || [ "$UNUSED_DEV_DEPS" -ne 0 ] || [ "$UNUSED_EXPORTS" -ne 0 ]; then
             
             # Create annotations for unused files
             if [ "$UNUSED_FILES" -ne 0 ]; then
-              node -e "const data = require('./knip-output.json'); const dir = process.env.KNIP_DIR; (data.files || []).forEach(file => console.log(\`::warning file=\${dir}/\${file},line=1::Unused file\`));"
+              node -e "
+                try {
+                  const data = require('./knip-output.json');
+                  const dir = process.env.KNIP_DIR;
+                  (data.files || []).forEach(file => console.log(\`::warning file=\${dir}/\${file},line=1::Unused file\`));
+                } catch (error) {
+                  console.error('::error::Failed to create file annotations: ' + error.message);
+                  process.exit(1);
+                }
+              " || echo "::warning::Failed to create annotations for unused files"
             fi
             # Create annotations for unused dependencies
             if [ "$UNUSED_DEPS" -ne 0 ]; then
-              node -e "const data = require('./knip-output.json'); const dir = process.env.KNIP_DIR; (data.issues || []).forEach(issue => { (issue.dependencies || []).forEach(dep => console.log(\`::warning file=\${dir}/\${issue.file || 'package.json'},line=\${dep.line || 1}::Unused dependency: \${dep.name}\`)); });"
+              node -e "
+                try {
+                  const data = require('./knip-output.json');
+                  const dir = process.env.KNIP_DIR;
+                  (data.issues || []).forEach(issue => {
+                    (issue.dependencies || []).forEach(dep => console.log(\`::warning file=\${dir}/\${issue.file || 'package.json'},line=\${dep.line || 1}::Unused dependency: \${dep.name}\`));
+                  });
+                } catch (error) {
+                  console.error('::error::Failed to create dependency annotations: ' + error.message);
+                  process.exit(1);
+                }
+              " || echo "::warning::Failed to create annotations for unused dependencies"
             fi
             
             # Create annotations for unused devDependencies
             if [ "$UNUSED_DEV_DEPS" -ne 0 ]; then
-              node -e "const data = require('./knip-output.json'); const dir = process.env.KNIP_DIR; (data.issues || []).forEach(issue => { (issue.devDependencies || []).forEach(dep => console.log(\`::warning file=\${dir}/\${issue.file || 'package.json'},line=\${dep.line || 1}::Unused devDependency: \${dep.name}\`)); });"
+              node -e "
+                try {
+                  const data = require('./knip-output.json');
+                  const dir = process.env.KNIP_DIR;
+                  (data.issues || []).forEach(issue => {
+                    (issue.devDependencies || []).forEach(dep => console.log(\`::warning file=\${dir}/\${issue.file || 'package.json'},line=\${dep.line || 1}::Unused devDependency: \${dep.name}\`));
+                  });
+                } catch (error) {
+                  console.error('::error::Failed to create devDependency annotations: ' + error.message);
+                  process.exit(1);
+                }
+              " || echo "::warning::Failed to create annotations for unused devDependencies"
             fi
             
             # Create annotations for unused exports
             if [ "$UNUSED_EXPORTS" -ne 0 ]; then
-              node -e "const data = require('./knip-output.json'); const dir = process.env.KNIP_DIR; (data.issues || []).forEach(issue => { (issue.exports || []).forEach(exp => console.log(\`::notice file=\${dir}/\${issue.file || 'package.json'},line=\${exp.line || 1}::Unused export: \${exp.name}\`)); });"
+              node -e "
+                try {
+                  const data = require('./knip-output.json');
+                  const dir = process.env.KNIP_DIR;
+                  (data.issues || []).forEach(issue => {
+                    (issue.exports || []).forEach(exp => console.log(\`::notice file=\${dir}/\${issue.file || 'package.json'},line=\${exp.line || 1}::Unused export: \${exp.name}\`));
+                  });
+                } catch (error) {
+                  console.error('::error::Failed to create export annotations: ' + error.message);
+                  process.exit(1);
+                }
+              " || echo "::warning::Failed to create annotations for unused exports"
             fi
           fi
             
