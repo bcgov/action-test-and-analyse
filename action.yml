@@ -92,51 +92,58 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         diff_branch: ${{ inputs.diff_branch }}
 
+    # Checkout the action repo to access package.json and .knip.json
+    - name: Extract action ref
+      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
+      shell: bash
+      run: |
+        if [[ "${{ github.action_path }}" =~ _actions/[^/]+/[^/]+/(.+) ]]; then
+          echo "ACTION_REF=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+        else
+          echo "::error::Could not extract ref from action path: ${{ github.action_path }}"
+          exit 1
+        fi
+    - uses: actions/checkout@v6
+      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
+      with:
+        repository: bcgov/action-test-and-analyse
+        ref: ${{ env.ACTION_REF }}
+        path: .action-repo
+        fetch-depth: 1
+
+    # Get versions from package.json
+    - name: Get versions from package.json
+      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
+      id: versions
+      shell: bash
+      run: |
+        set -e
+        cd .action-repo
+        echo "knip_version=$(jq -r '.dependencies.knip' package.json | sed 's/[\^~]//')" >> $GITHUB_OUTPUT
+        echo "safe_chain_version=$(jq -r '.dependencies["@aikidosec/safe-chain"]' package.json | sed 's/[\^~]//')" >> $GITHUB_OUTPUT
+
     # Setup node version (for tool installation, no cache yet - file doesn't exist)
     - uses: actions/setup-node@v6
       if: steps.diff.outputs.triggered == 'true'
       with:
         node-version: ${{ inputs.node_version }}
 
-    - if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
+    - name: Install dependencies and files
+      if: steps.diff.outputs.triggered == 'true' && ((inputs.supply_scan != 'false') || inputs.dep_scan != 'off')
       shell: bash
       run: |
-        # Setup safe-chain and/or knip
         set -e
 
-        # Download action files from GitHub API (works for all ref types: branches, tags, SHAs)
-        # Extract ref from action path pattern: .../_actions/owner/repo/ref, default to 'main'
-        ACTION_REF="main"
-        if [[ "${{ github.action_path }}" =~ _actions/[^/]+/[^/]+/(.+) ]]; then
-          ACTION_REF="${BASH_REMATCH[1]}"
-        fi
-        
-        ACTION_FILES_DIR="${{ runner.temp }}/action-files"
-        mkdir -p "$ACTION_FILES_DIR"
-        
-        # Download package.json (required - fail if unavailable)
-        curl -s -f -o "$ACTION_FILES_DIR/package.json" \
-          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/package.json" || {
-          echo "::error::Failed to download package.json from GitHub API for ref: $ACTION_REF"
-          exit 1
-        }
-        ACTION_PACKAGE_JSON="$ACTION_FILES_DIR/package.json"
-        
-        # Download .knip.json (optional - knip has defaults if missing)
-        curl -s -f -o "${{ runner.temp }}/.knip.json" \
-          "https://raw.githubusercontent.com/bcgov/action-test-and-analyse/$ACTION_REF/.knip.json" 2>/dev/null || true
-
-        # Install and initialize safe-chain
+        # Safe-chain
         if [ "${{ inputs.supply_scan }}" != "false" ]; then
-          SAFE_CHAIN_VERSION=$(node -e "console.log(require('$ACTION_PACKAGE_JSON').dependencies['@aikidosec/safe-chain'])")
-          npm install -g "@aikidosec/safe-chain@$SAFE_CHAIN_VERSION"
+          npm install -g "@aikidosec/safe-chain@${{ steps.versions.outputs.safe_chain_version }}"
           safe-chain setup-ci
         fi
 
-        # Install knip (configuration already in place from download/copy above)
+        # Knip
         if [ "${{ inputs.dep_scan }}" != "off" ]; then
-          KNIP_VERSION=$(node -e "console.log(require('$ACTION_PACKAGE_JSON').dependencies['knip'])")
-          npm install -g "knip@$KNIP_VERSION"
+          npm install -g "knip@${{ steps.versions.outputs.knip_version }}"
+          [ -f ".action-repo/.knip.json" ] && cp ".action-repo/.knip.json" "${{ runner.temp }}/.knip.json"
         fi
 
     # Checkout the target repository - SonarCloud requires a full clone
@@ -180,7 +187,7 @@ runs:
         # Run Knip for dependency and export analysis
         set -e
         cd "${{ github.workspace }}/${{ inputs.dir }}"
-        
+
         # Clean up any previous Knip output files
         rm -f knip-output.json knip-error.log knip-summary.txt
 
@@ -306,7 +313,7 @@ runs:
         if [ -f knip-output.json ] && [ -s knip-output.json ] && jq empty knip-output.json >/dev/null 2>&1; then
           HAS_VALID_JSON=true
         fi
-        
+
         if [ $KNIP_EXIT_CODE -eq 0 ]; then
           echo "✅ Knip analysis complete - no unused dependencies or exports found"
         elif [ "$HAS_VALID_JSON" = "true" ]; then
