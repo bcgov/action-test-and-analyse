@@ -177,15 +177,15 @@ runs:
 
     ### Optional SonarCloud
 
-    # # If sonar_token
-    # - if: inputs.sonar_token && steps.diff.outputs.triggered == 'true'
-    #   uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9 # v7.0.0
-    #   env:
-    #     SONAR_TOKEN: ${{ inputs.sonar_token }}
-    #   with:
-    #     projectBaseDir: ${{ inputs.dir }}
-    #     args: >
-    #       ${{ inputs.sonar_args }}
+    # If sonar_token
+    - if: inputs.sonar_token && steps.diff.outputs.triggered == 'true'
+      uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9 # v7.0.0
+      env:
+        SONAR_TOKEN: ${{ inputs.sonar_token }}
+      with:
+        projectBaseDir: ${{ inputs.dir }}
+        args: >
+          ${{ inputs.sonar_args }}
 
     # If triggered and (dep or supply) enabled: run analysis tools
     - if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
@@ -194,9 +194,6 @@ runs:
       run: |
         # Run Knip for dependency and export analysis
         set -e
-
-        # Temporary - testing
-        npm ci
 
         # Clean up any previous Knip output files
         rm -f knip-output.json knip-summary.txt
