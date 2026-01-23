@@ -46,7 +46,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # Concurrency group ensures only one PR pushes to temporary-branch at a time
-          git push origin HEAD:temporary-branch --force
+          git push origin HEAD:refs/heads/temporary-branch --force
           echo "✅ Pushed PR head (${{ github.event.pull_request.head.sha }}) to temporary-branch"
 
   tests:
@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [backend, frontend-merge, frontend-pr, frontend-full-scan]
+        name: [backend, frontend-merge, frontend-pr, frontend-full-scan, waste]
         include:
           - name: backend
             dir: backend
@@ -63,32 +63,56 @@ jobs:
             expected_triggered: false
             supply_scan: false
             dep_scan: error
+            commands: |
+              npm ci
+              npm run test:cov
+            repository: bcgov/quickstart-openshift
           - name: frontend-merge
             dir: frontend
             triggers: ('.')
             expected_triggered: true
             dep_scan: warn
+            commands: |
+              npm ci
+              npm run test:cov
+            repository: bcgov/quickstart-openshift
           - name: frontend-pr
             dir: frontend
             expected_triggered: true
             supply_scan: true
             dep_scan: off
+            commands: |
+              npm ci
+              npm run test:cov
+            repository: bcgov/quickstart-openshift
           - name: frontend-full-scan
             dir: frontend
             triggers: ('.')
             expected_triggered: true
             supply_scan: true
             dep_scan: warn
+            commands: |
+              npm ci
+              npm run test:cov
+            repository: bcgov/quickstart-openshift
+          - name: waste
+            dir: frontend
+            expected_triggered: true
+            supply_scan: false
+            dep_scan: warn
+            commands: |
+              npm ci
+              echo "Good enough for testing knip!"
+            repository: bcgov/nr-waste-plus
+
     steps:
       - id: action
         uses: bcgov/action-test-and-analyse@temporary-branch
         with:
-          commands: |
-            npm ci
-            npm run test:cov
+          commands: ${{ matrix.commands }}
           dir: ${{ matrix.dir }}
           node_version: ${{ needs.init.outputs.node_version }}
-          repository: bcgov/quickstart-openshift
+          repository: ${{ matrix.repository }}
           sonar_args: >
             -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
