@@ -167,14 +167,6 @@ runs:
         npm install -g "knip@${{ steps.versions.outputs.knip_version }}"
         cp .knip.json "${{ runner.temp }}/.knip.json"
 
-    # Setup node with caching (now that package-lock.json exists)
-    - uses: actions/setup-node@v6
-      if: steps.diff.outputs.triggered == 'true'
-      with:
-        node-version: ${{ inputs.node_version }}
-        cache: ${{ inputs.cache }}
-        cache-dependency-path: ${{ inputs.dir }}/package-lock.json
-
     # Checkout the target repository - SonarCloud requires a full clone
     - uses: actions/checkout@v6
       if: steps.diff.outputs.triggered == 'true'
