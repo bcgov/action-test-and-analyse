@@ -209,6 +209,8 @@ runs:
           KNIP_CONFIG="--config=${{ runner.temp }}/.knip.json --no-config-hints"
         fi
 
+        knip --dependencies --exports --reporter json ${KNIP_CONFIG}
+
         # Run knip with JSON output for annotations (stderr separate to avoid corrupting JSON)
         set +e
         knip --dependencies --exports --reporter json ${KNIP_CONFIG} > knip-output.json 2> knip-error.log
