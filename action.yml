@@ -98,23 +98,27 @@ runs:
       id: action_repo
       shell: bash
       run: |
-        ACTION_REPO="${GITHUB_ACTION_REPOSITORY:-${{ github.action_repository }}}"
         ACTION_REF="${GITHUB_ACTION_REF:-${{ github.action_ref }}}"
 
-        # If still empty, fall back to current repo/ref (but this shouldn't happen)
-        ACTION_REPO="${ACTION_REPO:-${{ github.repository }}}"
-        ACTION_REF="${ACTION_REF:-${{ github.ref }}}"
+        # If still empty, extract from action_path (e.g., _actions/bcgov/action-test-and-analyse/temporary-branch/...)
+        if [ -z "$ACTION_REF" ]; then
+          if [[ "${{ github.action_path }}" =~ _actions/[^/]+/[^/]+/(.+) ]]; then
+            ACTION_REF="${BASH_REMATCH[1]}"
+            echo "Extracted ref from action_path: $ACTION_REF"
+          else
+            echo "::error::Could not determine action ref. action_path: ${{ github.action_path }}"
+            exit 1
+          fi
+        fi
 
-        echo "repository=$ACTION_REPO" >> $GITHUB_OUTPUT
         echo "ref=$ACTION_REF" >> $GITHUB_OUTPUT
-        echo "Using repository: $ACTION_REPO"
         echo "Using ref: $ACTION_REF"
 
     # Checkout the action (upstream) repo
     - uses: actions/checkout@v6
       if: steps.diff.outputs.triggered == 'true'
       with:
-        repository: ${{ steps.action_repo.outputs.repository }}
+        repository: bcgov/action-test-and-analyse
         ref: ${{ steps.action_repo.outputs.ref }}
 
     - if: steps.diff.outputs.triggered == 'true'
@@ -133,8 +137,7 @@ runs:
       with:
         node-version: ${{ steps.versions.outputs.action_node_version }}
 
-    - name: Install dependencies and files
-      shell: bash
+    - shell: bash
       run: |
         # Install dependencies and files
         set -e
