@@ -79,6 +79,12 @@ jobs:
             expected_triggered: true
             supply_scan: true
             dep_scan: warn
+          - name: nr-waste-plus-frontend
+            dir: frontend
+            expected_triggered: true
+            supply_scan: false
+            dep_scan: error
+
     steps:
       - id: action
         uses: bcgov/action-test-and-analyse@temporary-branch
