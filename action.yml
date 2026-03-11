@@ -87,7 +87,7 @@ runs:
 
     # Send triggers to diff action (only for pull requests; omitted for push events so tests always run)
     - id: diff
-      uses: bcgov/action-diff-triggers@04bb0c4087cc06a8c060d23c3e660b7b15a323ac # v1.1.0
+      uses: bcgov/action-diff-triggers@4abfcb211f5816d654d1c5a417e5431a2c4a5379 # v1.1.1
       with:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         ref: ${{ inputs.diff_branch }}
