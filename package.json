@@ -7,7 +7,7 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "knip": "^5.80.0",
+    "knip": "^6.0.0",
     "@aikidosec/safe-chain": "^1.1.10"
   },
   "repository": {
