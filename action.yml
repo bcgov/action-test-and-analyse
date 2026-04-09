@@ -437,12 +437,12 @@ runs:
         else
           # Non-zero exit = analysis found issues (respect warn/error mode)
           echo "⚠️  Knip found issues"
-          if [ "${{ inputs.dep_scan }}" = "warn" ]; then
-            echo "Running in warn mode - workflow will continue"
-            exit 0
-          else
+          if [ "${{ inputs.dep_scan }}" = "error" ]; then
             echo "Running in error mode - workflow will exit"
             exit $KNIP_EXIT_CODE
+          else
+            echo "Running in warn mode (default) - workflow will continue"
+            exit 0
           fi
         fi
 
