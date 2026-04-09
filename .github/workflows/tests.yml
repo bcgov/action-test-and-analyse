@@ -99,6 +99,7 @@ jobs:
             dep_scan: warn
             test_command: echo "Good enough for testing knip!"
             repository: bcgov/nr-waste-plus
+            branch: 326778f5ae22129bd490795493c4e53e4f3de5f9 # Pin to stable commit
     steps:
       - id: action
         uses: bcgov/action-test-and-analyse@temporary-branch
@@ -109,6 +110,7 @@ jobs:
           dir: ${{ matrix.dir }}
           node_version: ${{ needs.init.outputs.node_version }}
           repository: ${{ matrix.repository }}
+          branch: ${{ matrix.branch || 'a5b623e6167d91e2bf1e2332fa24495887d83d5e' }} # Default to stable quickstart commit
           triggers: ${{ matrix.triggers }}
           dep_scan: ${{ matrix.dep_scan }}
 
