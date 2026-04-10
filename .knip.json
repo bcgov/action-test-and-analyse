@@ -2,6 +2,7 @@
   "ignoreDependencies": [
     "swagger-ui-express",
     "rimraf",
+    "magicast",
     "@types/node",
     "@types/react",
     "@types/react-dom",
