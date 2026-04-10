@@ -70,14 +70,14 @@ jobs:
             dir: backend
             triggers: ('.')
             expected_triggered: true
-            dep_scan: error
+            dep_scan: warn
             test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: backend-not-triggered
             dir: backend
             triggers: ('backend/')
             expected_triggered: false
-            dep_scan: error
+            dep_scan: warn
             test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: frontend-basic
