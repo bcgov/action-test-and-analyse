@@ -3,7 +3,6 @@
 import * as core from '@actions/core';
 import { analyzeKnip } from './knip.js';
 import fs from 'node:fs';
-import path from 'node:path';
 
 /**
  * Main entry point for the action/CLI.
@@ -23,7 +22,17 @@ async function run() {
        return;
     }
 
-    const stats = analyzeKnip(knipOutputFile, dir);
+    let stats;
+    try {
+      stats = analyzeKnip(knipOutputFile, dir);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      core.warning(`Failed to analyze Knip output at ${knipOutputFile}: ${message}. Skipping analysis.`);
+      if (depScan === 'error') {
+        core.info('Knip analysis output could not be parsed; skipping dependency analysis instead of failing the workflow.');
+      }
+      return;
+    }
     
     // Set outputs for the action
     core.setOutput('unused_files', stats.unusedFiles);

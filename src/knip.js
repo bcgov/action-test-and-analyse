@@ -25,23 +25,22 @@ export function analyzeKnip(outputFile, baseDir) {
     throw new Error(`Failed to parse Knip JSON: ${error.message}`);
   }
 
-  const unusedFiles = (data.files || []).length;
-  const issues = data.issues || [];
-  
+  const files = Array.isArray(data.files) ? data.files : [];
+  const issues = Array.isArray(data.issues) ? data.issues : [];
+
+  const unusedFiles = files.length;
   const unusedDeps = issues.flatMap(i => i.dependencies || []).length;
   const unusedDevDeps = issues.flatMap(i => i.devDependencies || []).length;
   const unusedExports = issues.flatMap(i => i.exports || []).length;
 
   // Create annotations for unused files
-  if (unusedFiles > 0) {
-    data.files.forEach(file => {
-      core.warning('Unused file', {
-        file: path.join(baseDir, file),
-        title: 'Knip: Unused File',
-        startLine: 1
-      });
+  files.forEach(file => {
+    core.warning('Unused file', {
+      file: path.join(baseDir, file),
+      title: 'Knip: Unused File',
+      startLine: 1
     });
-  }
+  });
 
   // Create annotations for other issues
   issues.forEach(issue => {

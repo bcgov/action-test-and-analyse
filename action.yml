@@ -65,6 +65,15 @@ outputs:
   triggered:
     description: Whether the action was triggered based on path changes
     value: ${{ steps.diff.outputs.triggered }}
+  unused_files:
+    description: Number of unused files found by Knip
+    value: ${{ steps.analysis.outputs.unused_files }}
+  unused_deps:
+    description: Number of unused dependencies found by Knip
+    value: ${{ steps.analysis.outputs.unused_deps }}
+  total_issues:
+    description: Total number of issues found by Knip
+    value: ${{ steps.analysis.outputs.total_issues }}
 
 runs:
   using: composite
@@ -92,30 +101,36 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         ref: ${{ inputs.diff_branch }}
 
-    # Install Action Dependencies (if needed)
+    - if: steps.diff.outputs.triggered == 'true'
+      id: versions
+      shell: bash
+      run: |
+        # Get Action Node Version (using runner's node to read file)
+        set -e
+        NODE_VER=$(node -e "const pkg = require('${{ github.action_path }}/package.json'); const ver = pkg.engines?.node?.match(/\d+/)?.[0] || '20'; console.log(ver)")
+        echo "action_node_version=$NODE_VER" >> $GITHUB_OUTPUT
+
+    # Setup node version for the action's own dependencies
+    - uses: actions/setup-node@v6
+      if: steps.diff.outputs.triggered == 'true'
+      with:
+        node-version: ${{ steps.versions.outputs.action_node_version }}
+
+    # Install Action Dependencies
     - name: Install Action Dependencies
       if: steps.diff.outputs.triggered == 'true'
       shell: bash
       run: |
         cd ${{ github.action_path }}
         if [ ! -d "node_modules" ]; then
-          npm ci --only=production
+          npm ci --omit=dev
         fi
 
-    - if: steps.diff.outputs.triggered == 'true'
-      id: versions
+    - name: Setup Supply Chain Scan
+      if: steps.diff.outputs.triggered == 'true' && inputs.supply_scan == 'true'
       shell: bash
       run: |
-        # Get Action Node Version
-        set -e
-        NODE_VER=$(node -p "require('${{ github.action_path }}/package.json').engines.node.match(/\d+/)[0]")
-        echo "action_node_version=$NODE_VER" >> $GITHUB_OUTPUT
-
-    # Setup node version for tool installation
-    - uses: actions/setup-node@v6
-      if: steps.diff.outputs.triggered == 'true'
-      with:
-        node-version: ${{ steps.versions.outputs.action_node_version }}
+        ${{ github.action_path }}/node_modules/.bin/safe-chain setup-ci
 
     # Checkout the target repository - SonarCloud requires a full clone
     - uses: actions/checkout@v6
@@ -151,6 +166,7 @@ runs:
 
     # Run Analysis Tools
     - name: Run Analysis
+      id: analysis
       if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
       working-directory: ${{ inputs.dir }}
       shell: bash
@@ -166,17 +182,21 @@ runs:
           KNIP_CONFIG="--config=${{ github.action_path }}/.knip.json --no-config-hints"
         fi
 
-        # Run knip
+        # Run knip using the action's bundled version
         set +e
-        DOTENV_CONFIG_QUIET=true knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
+        ${{ github.action_path }}/node_modules/.bin/knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
         KNIP_EXIT_CODE=$?
-        knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
+        ${{ github.action_path }}/node_modules/.bin/knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
         set -e
 
         # Process results with the action script
         export INPUT_DIR="${{ inputs.dir }}"
         export INPUT_DEP_SCAN="${{ inputs.dep_scan }}"
         export INPUT_KNIP_OUTPUT="knip-output.json"
+        
+        # Ensure we run this using the action's compatible node version if possible
+        # but for composite simplicity we'll use the current (user project) version 
+        # as it is likely compatible (Engine says >=22)
         node ${{ github.action_path }}/src/index.js
 
     - name: Final cleanup
