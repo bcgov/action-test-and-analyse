@@ -123,7 +123,8 @@ runs:
       run: |
         cd ${{ github.action_path }}
         if [ ! -d "node_modules" ]; then
-          npm ci --omit=dev
+          # Use npm install instead of ci to be more resilient to platform-specific optional deps (like esbuild)
+          npm install --no-save --omit=dev --no-audit --no-fund
         fi
 
     - name: Setup Supply Chain Scan
