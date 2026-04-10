@@ -3,16 +3,28 @@
   "version": "1.0.0",
   "description": "GitHub Actions composite action for running tests and code analysis with SonarCloud integration",
   "private": true,
+  "type": "module",
   "engines": {
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "knip": "^6.0.0",
-    "@aikidosec/safe-chain": "^1.1.10"
+    "@actions/core": "^3.0.0",
+    "@actions/exec": "^3.0.0",
+    "@actions/github": "^9.1.0",
+    "@aikidosec/safe-chain": "^1.1.10",
+    "knip": "^6.0.0"
+  },
+  "scripts": {
+    "test": "vitest",
+    "lint": "eslint src/**",
+    "format": "prettier --write src/**"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/bcgov/action-test-and-analyse.git"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^4.1.4"
+  }
 }
