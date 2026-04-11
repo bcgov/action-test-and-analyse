@@ -36,6 +36,14 @@ jobs:
             expected_triggered: true
             repository: bcgov/quickstart-openshift
             test_command: npm run test:cov
+          - name: java-basic
+            dir: backend
+            language: java
+            java_version: "17"
+            triggers: ""
+            expected_triggered: true
+            repository: bcgov/nr-forest-client
+            test_command: mvn -B verify -P all-tests -DskipTests # Skip tests for speed, but verify build/analysis
     steps:
       # 1. Checkout the Action (this repo) at the root
       - name: Checkout Action
@@ -62,6 +70,8 @@ jobs:
           # Point the action to the subfolder where the project lives
           dir: test-repo/${{ matrix.dir }}
           node_version: "22"
+          language: ${{ matrix.language || 'node' }}
+          java_version: ${{ matrix.java_version || '21' }}
           repository: ${{ matrix.repository }}
           triggers: ${{ matrix.triggers }}
 
