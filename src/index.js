@@ -66,10 +66,10 @@ export function summarizeJUnitXmlFiles(xmlFiles) {
  */
 async function run() {
   try {
-    const dir = core.getInput('dir') || process.env.KNIP_DIR || '.';
-    const language = core.getInput('language') || process.env.INPUT_LANGUAGE || 'node';
+    const dir = core.getInput('dir') || '.';
+    const depScan = core.getInput('dep_scan') || 'off';
     const knipOutputFile = core.getInput('knip_output') || 'knip-output.json';
-    const depScan = core.getInput('dep_scan') || 'warn';
+    const language = core.getInput('language') || 'node';
     const knipSummaryFile = 'knip-summary.txt';
 
     core.info(`Starting logic for language: ${language} in directory: ${dir}`);
