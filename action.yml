@@ -168,7 +168,6 @@ runs:
       with:
         node-version: ${{ inputs.node_version }}
         cache: ${{ inputs.cache }}
-        cache-dependency-path: ${{ inputs.dir }}/package-lock.json
 
     # Condition 2: Java Project Setup
     - name: Setup Java
