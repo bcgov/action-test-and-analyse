@@ -59,9 +59,18 @@ jobs:
             test_command: echo "Good enough for testing knip!"
             repository: bcgov/nr-waste-plus
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout Action
+        uses: actions/checkout@v6
         with:
           path: .github/actions/test-and-analyse
+
+      # Checkout the target repository into the root - SonarCloud/Action expects it there
+      - name: Checkout Target Repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.repository }}
+          # Do NOT use clean: true here, we need to keep the action folder alive
+          clean: false
 
       - name: Get Node.js version from package.json
         id: node-version
@@ -86,6 +95,7 @@ jobs:
           repository: ${{ matrix.repository }}
           triggers: ${{ matrix.triggers }}
           dep_scan: ${{ matrix.dep_scan }}
+          skip_checkout: "true"
 
       - name: Verify trigger behavior
         run: |

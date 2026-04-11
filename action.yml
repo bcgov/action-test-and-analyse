@@ -77,6 +77,10 @@ inputs:
     description: Non-default branch to clone (used for testing this action)
     default: ""
 
+  skip_checkout:
+    description: "Skip the internal checkout step. Useful for self-testing or when the project is already checked out."
+    default: "false"
+
 outputs:
   triggered:
     description: Whether the action was triggered based on path changes
@@ -151,7 +155,7 @@ runs:
 
     # Checkout the target repository - SonarCloud requires a full clone
     - uses: actions/checkout@v6
-      if: steps.diff.outputs.triggered == 'true'
+      if: steps.diff.outputs.triggered == 'true' && inputs.skip_checkout != 'true'
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.branch }}
