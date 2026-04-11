@@ -5,26 +5,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { XMLParser } from 'fast-xml-parser';
 import * as core from '@actions/core';
+import { glob } from 'glob';
 import { analyzeKnip } from './knip.js';
 
 export function findJUnitXmlFiles(dir) {
-  const potentialReportPaths = [
-    path.join(dir, 'target/surefire-reports'),
-    path.join(dir, 'build/test-results/test'),
-    path.join(dir, 'test-results')
+  const reports = [];
+  const searchPaths = [
+    'target/surefire-reports/*.xml',
+    'target/failsafe-reports/*.xml',
+    'build/test-results/**/*.xml',
+    '**/junit*.xml',
+    '**/test-results.xml',
   ];
-  const xmlFiles = [];
-  potentialReportPaths.forEach(p => {
-    try {
-      if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
-        const files = fs.readdirSync(p).filter(f => f.endsWith('.xml'));
-        files.forEach(f => xmlFiles.push(path.join(p, f)));
-      }
-    } catch (err) {
-      core.debug(`Failed to inspect potential test report path ${p}: ${err.message}`);
-    }
-  });
-  return xmlFiles;
+
+  for (const pattern of searchPaths) {
+    const fullPattern = path.join(process.cwd(), pattern);
+    const files = glob.sync(fullPattern);
+    reports.push(...files);
+  }
+  return reports;
 }
 
 export function parseJUnitXmlContent(xmlContent) {

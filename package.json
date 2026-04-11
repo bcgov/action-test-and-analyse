@@ -11,6 +11,7 @@
     "@actions/core": "^3.0.0",
     "@aikidosec/safe-chain": "^1.1.10",
     "fast-xml-parser": "^5.5.11",
+    "glob": "^13.0.6",
     "knip": "^6.0.0"
   },
   "scripts": {
