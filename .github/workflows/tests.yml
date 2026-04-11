@@ -48,7 +48,7 @@ jobs:
         uses: ./
         with:
           commands: |
-            if [ -f "package.json" ]; then npm install; fi
+            npm install --no-package-lock
             ${{ matrix.test_command }}
           # Point the action to the subfolder where it will check out the project
           dir: test-project/${{ matrix.dir }}
