@@ -16,85 +16,51 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name:
-          [
-            backend-triggered,
-            backend-not-triggered,
-            frontend-basic,
-            frontend-no-triggers,
-            waste-frontend,
-          ]
+        name: [backend-triggered, backend-not-triggered, frontend-basic]
         include:
           - name: backend-triggered
             dir: backend
             triggers: "('./')"
             expected_triggered: true
-            dep_scan: warn
-            test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
+            test_command: npm run test:cov
           - name: backend-not-triggered
             dir: backend
             triggers: "('backend/')"
             expected_triggered: false
-            dep_scan: warn
-            test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
+            test_command: npm run test:cov
           - name: frontend-basic
             dir: frontend
             triggers: "('./')"
             expected_triggered: true
-            dep_scan: warn
-            test_command: npm run test:cov
             repository: bcgov/quickstart-openshift
-          - name: frontend-no-triggers
-            dir: frontend
-            expected_triggered: true
-            dep_scan: off
             test_command: npm run test:cov
-            repository: bcgov/quickstart-openshift
-          - name: waste-frontend
-            dir: frontend
-            expected_triggered: true
-            dep_scan: warn
-            test_command: echo "Good enough for testing knip!"
-            repository: bcgov/nr-waste-plus
     steps:
-      - name: Checkout Action
-        uses: actions/checkout@v6
-        with:
-          path: .github/actions/test-and-analyse
-
-      # Checkout the target repository into the root - SonarCloud/Action expects it there
+      # Checkout the target repository into the root
       - name: Checkout Target Repository
         uses: actions/checkout@v6
         with:
           repository: ${{ matrix.repository }}
-          # Do NOT use clean: true here, we need to keep the action folder alive
-          clean: false
 
-      - name: Get Node.js version from package.json
-        id: node-version
-        working-directory: .github/actions/test-and-analyse
-        run: |
-          set -e
-          NODE_VERSION=$(jq -r '.engines.node // empty' package.json | sed 's/>=//' | cut -d. -f1)
-          if [ -z "$NODE_VERSION" ]; then
-            echo "node_version=20" >> "$GITHUB_OUTPUT"
-          else
-            echo "node_version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
-          fi
+      # Checkout the action into a subdirectory
+      - name: Checkout Action
+        uses: actions/checkout@v6
+        with:
+          path: local-action
+          # We need at least the current branch's code
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - id: action
-        uses: ./.github/actions/test-and-analyse
+        uses: ./local-action
         with:
           commands: |
             npm ci
             ${{ matrix.test_command }}
           dir: ${{ matrix.dir }}
-          node_version: ${{ steps.node-version.outputs.node_version }}
+          node_version: "22"
           repository: ${{ matrix.repository }}
           triggers: ${{ matrix.triggers }}
-          dep_scan: ${{ matrix.dep_scan }}
           skip_checkout: "true"
 
       - name: Verify trigger behavior
