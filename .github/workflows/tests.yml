@@ -60,9 +60,12 @@ jobs:
             repository: bcgov/nr-waste-plus
     steps:
       - uses: actions/checkout@v6
+        with:
+          path: .github/actions/test-and-analyse
 
       - name: Get Node.js version from package.json
         id: node-version
+        working-directory: .github/actions/test-and-analyse
         run: |
           set -e
           NODE_VERSION=$(jq -r '.engines.node // empty' package.json | sed 's/>=//' | cut -d. -f1)
@@ -73,7 +76,7 @@ jobs:
           fi
 
       - id: action
-        uses: ./
+        uses: ./.github/actions/test-and-analyse
         with:
           commands: |
             npm ci
