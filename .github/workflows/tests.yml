@@ -48,17 +48,7 @@ jobs:
         uses: ./
         with:
           commands: |
-            echo "--- ROOT STRUCTURE ---"
-            ls -R $GITHUB_WORKSPACE
-            echo "--- CURRENT DIRECTORY: $(pwd) ---"
-            ls -F
-            if [ -f "package.json" ]; then
-              echo "Found package.json, showing scripts:"
-              cat package.json | jq .scripts
-              npm install --no-package-lock
-            else
-              echo "No package.json found in $(pwd)"
-            fi
+            npm install --no-package-lock
             ${{ matrix.test_command }}
           # Point the action to the subfolder where it will check out the project
           dir: test-project/${{ matrix.dir }}
