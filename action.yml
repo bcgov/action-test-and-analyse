@@ -121,14 +121,6 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         ref: ${{ inputs.diff_branch }}
 
-    - name: Debug Environment
-      shell: bash
-      run: |
-        echo "Current Workspace: $GITHUB_WORKSPACE"
-        echo "Action Path: ${{ github.action_path }}"
-        echo "Listing Action Path:"
-        ls -F ${{ github.action_path }}
-
     - if: steps.diff.outputs.triggered == 'true'
       id: versions
       shell: bash
@@ -150,10 +142,8 @@ runs:
       shell: bash
       run: |
         cd ${{ github.action_path }}
-        if [ ! -d "node_modules" ]; then
-          # Use npm install instead of ci to be more resilient to platform-specific optional deps (like esbuild)
-          npm install --no-save --omit=dev --no-audit --no-fund
-        fi
+        # Use --no-package-lock to avoid failing on platform-specific optional dependencies in the lockfile
+        npm install --no-package-lock --no-save --omit=dev --no-audit --no-fund
 
     - name: Setup Supply Chain Scan
       if: steps.diff.outputs.triggered == 'true' && inputs.supply_scan == 'true'
