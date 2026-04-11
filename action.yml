@@ -173,7 +173,7 @@ runs:
       with:
         java-version: ${{ inputs.java_version }}
         distribution: ${{ inputs.java_distribution }}
-        cache: ${{ inputs.cache == 'npm' && 'maven' || inputs.cache }} # Default to maven
+        cache: ${{ (inputs.cache == 'maven' || inputs.cache == 'gradle' || inputs.cache == 'sbt') && inputs.cache || 'maven' }}
 
     # Condition 3: Python Project Setup
     - name: Setup Python
@@ -181,7 +181,7 @@ runs:
       if: steps.diff.outputs.triggered == 'true' && inputs.language == 'python'
       with:
         python-version: ${{ inputs.python_version }}
-        cache: ${{ inputs.cache == 'npm' && 'pip' || inputs.cache }} # Default to pip
+        cache: ${{ (inputs.cache == 'pip' || inputs.cache == 'pipenv' || inputs.cache == 'poetry') && inputs.cache || 'pip' }}
 
     # Run tests
     - if: steps.diff.outputs.triggered == 'true'
@@ -199,7 +199,7 @@ runs:
         args: >
           ${{ inputs.sonar_args }}
 
-    # Run Analysis Tools
+    # Run Analysis Tools (Knip for Node, Test Reports for others)
     - name: Run Analysis
       id: analysis
       if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
@@ -210,27 +210,30 @@ runs:
         # Clean up
         rm -f knip-output.json knip-summary.txt
 
-        # Set config
-        if [ -n "${{ inputs.knip_config }}" ]; then
-          KNIP_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
-        else
-          KNIP_CONFIG="--config=${{ github.action_path }}/.knip.json --no-config-hints"
+        # Only run Knip for Node projects
+        if [ "${{ inputs.language }}" == "node" ]; then
+          # Set config
+          if [ -n "${{ inputs.knip_config }}" ]; then
+            KNIP_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
+          else
+            KNIP_CONFIG="--config=${{ github.action_path }}/.knip.json --no-config-hints"
+          fi
+
+          # Run knip using the action's bundled version
+          set +e
+          ${{ github.action_path }}/node_modules/.bin/knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
+          KNIP_EXIT_CODE=$?
+          ${{ github.action_path }}/node_modules/.bin/knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
+          set -e
         fi
 
-        # Run knip using the action's bundled version
-        set +e
-        ${{ github.action_path }}/node_modules/.bin/knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
-        KNIP_EXIT_CODE=$?
-        ${{ github.action_path }}/node_modules/.bin/knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
-        set -e
-
-        # Process results with the action script
+        # Process results with the bundled action script (shared logic)
         export INPUT_DIR="${{ inputs.dir }}"
         export INPUT_DEP_SCAN="${{ inputs.dep_scan }}"
         export INPUT_KNIP_OUTPUT="knip-output.json"
         export INPUT_LANGUAGE="${{ inputs.language }}"
         
-        node ${{ github.action_path }}/src/index.js
+        node ${{ github.action_path }}/dist/index.js
 
     - name: Final cleanup
       if: always() && inputs.repository != github.repository
