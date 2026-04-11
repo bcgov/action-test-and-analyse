@@ -121,35 +121,12 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         ref: ${{ inputs.diff_branch }}
 
-    - if: steps.diff.outputs.triggered == 'true'
-      id: versions
-      shell: bash
-      run: |
-        # Get Action Node Version (using runner's node to read file)
-        set -e
-        NODE_VER=$(node -e "const pkg = require('${{ github.action_path }}/package.json'); const ver = pkg.engines?.node?.match(/\d+/)?.[0] || '20'; console.log(ver)")
-        echo "action_node_version=$NODE_VER" >> $GITHUB_OUTPUT
-
-    # Setup node version for the action's own dependencies
-    - uses: actions/setup-node@v6
-      if: steps.diff.outputs.triggered == 'true'
-      with:
-        node-version: ${{ steps.versions.outputs.action_node_version }}
-
-    # Install Action Dependencies
-    - name: Install Action Dependencies
-      if: steps.diff.outputs.triggered == 'true'
-      shell: bash
-      run: |
-        cd ${{ github.action_path }}
-        # Use --no-package-lock to avoid failing on platform-specific optional dependencies in the lockfile
-        npm install --no-package-lock --no-save --omit=dev --no-audit --no-fund
 
     - name: Setup Supply Chain Scan
       if: steps.diff.outputs.triggered == 'true' && inputs.supply_scan == 'true'
       shell: bash
       run: |
-        ${{ github.action_path }}/node_modules/.bin/safe-chain setup-ci
+        npx -y @aikidosec/safe-chain setup-ci
 
     # Checkout the target repository - SonarCloud requires a full clone
     - uses: actions/checkout@v6
@@ -224,9 +201,9 @@ runs:
 
           # Run knip using the action's bundled version
           set +e
-          ${{ github.action_path }}/node_modules/.bin/knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
+          npx -y knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
           KNIP_EXIT_CODE=$?
-          ${{ github.action_path }}/node_modules/.bin/knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
+          npx -y knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
           set -e
         fi
 
