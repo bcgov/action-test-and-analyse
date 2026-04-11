@@ -50,6 +50,12 @@ jobs:
           repository: ${{ matrix.repository }}
           path: test-project
 
+      # 2.5 Protect test-project from being deleted by the action's internal git clean
+      - name: Track test-project
+        run: |
+          git add -f test-project
+          git status
+
       # 3. Use the local action (./) to analyze the project in the subfolder
       - id: action
         uses: ./
