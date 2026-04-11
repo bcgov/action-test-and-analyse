@@ -53,6 +53,7 @@ jobs:
       # 2.5 Protect test-project from being deleted by the action's internal git clean
       - name: Track test-project
         run: |
+          rm -rf test-project/.git
           git add -f test-project
           git status
 
