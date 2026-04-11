@@ -121,6 +121,14 @@ runs:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         ref: ${{ inputs.diff_branch }}
 
+    - name: Debug Environment
+      shell: bash
+      run: |
+        echo "Current Workspace: $GITHUB_WORKSPACE"
+        echo "Action Path: ${{ github.action_path }}"
+        echo "Listing Action Path:"
+        ls -F ${{ github.action_path }}
+
     - if: steps.diff.outputs.triggered == 'true'
       id: versions
       shell: bash
