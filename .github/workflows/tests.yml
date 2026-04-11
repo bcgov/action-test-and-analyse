@@ -48,7 +48,15 @@ jobs:
         uses: ./
         with:
           commands: |
-            npm install --no-package-lock
+            echo "Current Directory: $(pwd)"
+            ls -F
+            if [ -f "package.json" ]; then
+              echo "Found package.json, showing scripts:"
+              cat package.json | jq .scripts
+              npm install --no-package-lock
+            else
+              echo "No package.json found in $(pwd)"
+            fi
             ${{ matrix.test_command }}
           # Point the action to the subfolder where it will check out the project
           dir: test-project/${{ matrix.dir }}
