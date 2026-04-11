@@ -84,7 +84,7 @@ inputs:
 outputs:
   triggered:
     description: Whether the action was triggered based on path changes
-    value: ${{ steps.diff.outputs.triggered }}
+    value: ${{ steps.final_triggered.outputs.triggered }}
   unused_files:
     description: Number of unused files found by Knip
     value: ${{ steps.analysis.outputs.unused_files }}
@@ -114,23 +114,45 @@ runs:
           exit 1
         fi
 
-    # Send triggers to diff action (only for pull requests; omitted for push events so tests always run)
+    # Send triggers to diff action (only if triggers are provided)
     - id: diff
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.triggers }}" ]; then
+          echo "triggered=true" >> $GITHUB_OUTPUT
+        else
+          echo "Running diff-triggers with: ${{ inputs.triggers }}"
+          # We use a sub-step to call the action to handle the conditional output
+          echo "triggered=false" >> $GITHUB_OUTPUT # Default
+        fi
+
+    - id: diff_actual
+      if: inputs.triggers != ''
       uses: bcgov/action-diff-triggers@4abfcb211f5816d654d1c5a417e5431a2c4a5379 # v1.1.1
       with:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         ref: ${{ inputs.diff_branch }}
 
+    # Final triggered state
+    - id: final_triggered
+      shell: bash
+      run: |
+        if [ "${{ steps.diff.outputs.triggered }}" == "true" ] || [ "${{ steps.diff_actual.outputs.triggered }}" == "true" ]; then
+          echo "triggered=true" >> $GITHUB_OUTPUT
+        else
+          echo "triggered=false" >> $GITHUB_OUTPUT
+        fi
+
 
     - name: Setup Supply Chain Scan
-      if: steps.diff.outputs.triggered == 'true' && inputs.supply_scan == 'true'
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.supply_scan == 'true'
       shell: bash
       run: |
         npx -y @aikidosec/safe-chain setup-ci
 
     # Checkout the target repository - SonarCloud requires a full clone
     - uses: actions/checkout@v6
-      if: steps.diff.outputs.triggered == 'true' && inputs.skip_checkout != 'true'
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.skip_checkout != 'true'
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.branch }}
@@ -141,7 +163,7 @@ runs:
     # Setup node with caching
     - name: Setup Node.js
       uses: actions/setup-node@v6
-      if: steps.diff.outputs.triggered == 'true' && inputs.language == 'node'
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'node'
       with:
         node-version: ${{ inputs.node_version }}
         cache: ${{ inputs.cache }}
@@ -149,7 +171,7 @@ runs:
     # Condition 2: Java Project Setup
     - name: Setup Java
       uses: actions/setup-java@v4
-      if: steps.diff.outputs.triggered == 'true' && inputs.language == 'java'
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'java'
       with:
         java-version: ${{ inputs.java_version }}
         distribution: ${{ inputs.java_distribution }}
@@ -158,19 +180,19 @@ runs:
     # Condition 3: Python Project Setup
     - name: Setup Python
       uses: actions/setup-python@v5
-      if: steps.diff.outputs.triggered == 'true' && inputs.language == 'python'
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'python'
       with:
         python-version: ${{ inputs.python_version }}
         cache: ${{ (inputs.cache == 'pip' || inputs.cache == 'pipenv' || inputs.cache == 'poetry') && inputs.cache || 'pip' }}
 
     # Run tests
-    - if: steps.diff.outputs.triggered == 'true'
+    - if: steps.final_triggered.outputs.triggered == 'true'
       shell: bash
       working-directory: ${{ inputs.dir }}
       run: ${{ inputs.commands }}
 
     ### Optional SonarCloud
-    - if: inputs.sonar_token && steps.diff.outputs.triggered == 'true'
+    - if: inputs.sonar_token && steps.final_triggered.outputs.triggered == 'true'
       uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4 # v7.1.0
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
@@ -182,7 +204,7 @@ runs:
     # Run Analysis Tools (Knip for Node, Test Reports for others)
     - name: Run Analysis
       id: analysis
-      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.dep_scan != 'off'
       working-directory: ${{ inputs.dir }}
       shell: bash
       run: |
