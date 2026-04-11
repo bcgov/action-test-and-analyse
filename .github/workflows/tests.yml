@@ -20,19 +20,19 @@ jobs:
         include:
           - name: backend-triggered
             dir: backend
-            triggers: "('./')"
+            triggers: ""
             expected_triggered: true
             repository: bcgov/quickstart-openshift
             test_command: npm run test:cov
           - name: backend-not-triggered
             dir: backend
-            triggers: "('backend/')"
+            triggers: "('not-existent-path/')"
             expected_triggered: false
             repository: bcgov/quickstart-openshift
             test_command: npm run test:cov
           - name: frontend-basic
             dir: frontend
-            triggers: "('./')"
+            triggers: ""
             expected_triggered: true
             repository: bcgov/quickstart-openshift
             test_command: npm run test:cov
