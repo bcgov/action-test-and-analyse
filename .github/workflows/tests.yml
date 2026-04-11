@@ -43,14 +43,23 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      # 2. Use the local action (./) to analyze the project
+      # 2. Checkout the Test Project manually to avoid collisions
+      - name: Checkout Test Project
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.repository }}
+          path: test-project/${{ matrix.dir }}
+          fetch-depth: 0
+
+      # 3. Use the local action (./) to analyze the project
       - id: action
         uses: ./
         with:
+          skip_checkout: "true"
           commands: |
             npm install --no-package-lock
             ${{ matrix.test_command }}
-          # Point the action to the subfolder where it will check out the project
+          # Point the action to the subfolder where we checked out the project
           dir: test-project/${{ matrix.dir }}
           node_version: "22"
           repository: ${{ matrix.repository }}
