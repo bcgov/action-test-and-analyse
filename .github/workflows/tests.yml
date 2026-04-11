@@ -37,35 +37,24 @@ jobs:
             repository: bcgov/quickstart-openshift
             test_command: npm run test:cov
     steps:
-      # 1. Checkout the Action (this repo) into a subfolder
+      # 1. Checkout the Action (this repo) at the root
       - name: Checkout Action
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          path: action-v1
 
-      # 2. Checkout the Target Repository into a subfolder
-      # We do this manually here for triggers verification purposes
-      - name: Checkout Target Repository
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ matrix.repository }}
-          path: test-project
-
-      # 3. Use the local action (./action-v1) to analyze the project
+      # 2. Use the local action (./) to analyze the project
       - id: action
-        uses: ./action-v1
+        uses: ./
         with:
           commands: |
             npm ci
             ${{ matrix.test_command }}
-          # Point the action to the subfolder where the project is
+          # Point the action to the subfolder where it will check out the project
           dir: test-project/${{ matrix.dir }}
           node_version: "22"
           repository: ${{ matrix.repository }}
           triggers: ${{ matrix.triggers }}
-          # Skip internal checkout since we did it above
-          skip_checkout: "true"
 
       - name: Verify trigger behavior
         run: |
