@@ -159,6 +159,7 @@ runs:
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.branch }}
+        path: ${{ inputs.dir }}
         fetch-depth: 0
 
 
