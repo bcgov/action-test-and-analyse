@@ -16,7 +16,23 @@ inputs:
 
   node_version:
     description: Node version to use (e.g., '22')
-    required: true
+    default: "22"
+
+  java_version:
+    description: Java version to use (e.g., '21')
+    default: "21"
+
+  java_distribution:
+    description: Java distribution to use (e.g., temurin)
+    default: "temurin"
+
+  python_version:
+    description: Python version to use (e.g., '3.12')
+    default: "3.12"
+
+  language:
+    description: "Primary language of the project. Options: node (default), java, python"
+    default: "node"
 
   ### Typical / recommended
   cache:
@@ -142,12 +158,30 @@ runs:
         fetch-depth: 0
 
     # Setup node with caching
-    - uses: actions/setup-node@v6
-      if: steps.diff.outputs.triggered == 'true'
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      if: steps.diff.outputs.triggered == 'true' && inputs.language == 'node'
       with:
         node-version: ${{ inputs.node_version }}
         cache: ${{ inputs.cache }}
         cache-dependency-path: ${{ inputs.dir }}/package-lock.json
+
+    # Condition 2: Java Project Setup
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      if: steps.diff.outputs.triggered == 'true' && inputs.language == 'java'
+      with:
+        java-version: ${{ inputs.java_version }}
+        distribution: ${{ inputs.java_distribution }}
+        cache: ${{ inputs.cache == 'npm' && 'maven' || inputs.cache }} # Default to maven
+
+    # Condition 3: Python Project Setup
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      if: steps.diff.outputs.triggered == 'true' && inputs.language == 'python'
+      with:
+        python-version: ${{ inputs.python_version }}
+        cache: ${{ inputs.cache == 'npm' && 'pip' || inputs.cache }} # Default to pip
 
     # Run tests
     - if: steps.diff.outputs.triggered == 'true'
@@ -194,10 +228,8 @@ runs:
         export INPUT_DIR="${{ inputs.dir }}"
         export INPUT_DEP_SCAN="${{ inputs.dep_scan }}"
         export INPUT_KNIP_OUTPUT="knip-output.json"
+        export INPUT_LANGUAGE="${{ inputs.language }}"
         
-        # Ensure we run this using the action's compatible node version if possible
-        # but for composite simplicity we'll use the current (user project) version 
-        # as it is likely compatible (Engine says >=22)
         node ${{ github.action_path }}/src/index.js
 
     - name: Final cleanup

@@ -10,12 +10,14 @@
   "dependencies": {
     "@actions/core": "^3.0.0",
     "@aikidosec/safe-chain": "^1.1.10",
+    "fast-xml-parser": "^5.5.11",
     "knip": "^6.0.0"
   },
   "scripts": {
     "test": "vitest",
     "lint": "eslint src/**",
-    "format": "prettier --write src/**"
+    "format": "prettier --write src/**",
+    "build": "ncc build src/index.js -o dist --minify"
   },
   "repository": {
     "type": "git",
@@ -24,6 +26,7 @@
   "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@vercel/ncc": "^0.38.4",
     "eslint": "^10.2.0",
     "prettier": "^3.8.2",
     "vitest": "^4.1.4"

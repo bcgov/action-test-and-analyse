@@ -22,7 +22,7 @@ export function analyzeKnip(outputFile, baseDir) {
   try {
     data = JSON.parse(content);
   } catch (error) {
-    throw new Error(`Failed to parse Knip JSON: ${error.message}`);
+    throw new Error(`Failed to parse Knip JSON: ${error.message}`, { cause: error });
   }
 
   const files = Array.isArray(data.files) ? data.files : [];
