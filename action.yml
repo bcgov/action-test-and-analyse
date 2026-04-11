@@ -162,7 +162,6 @@ runs:
         fetch-depth: 0
 
     - name: Debug Directory Structure
-      if: steps.diff.outputs.triggered == 'true'
       shell: bash
       run: |
         echo "Current Workspace: $GITHUB_WORKSPACE"
