@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: ${{ matrix.repository }}
-          path: test-project/${{ matrix.dir }}
+          path: test-repo
           fetch-depth: 0
 
       # 3. Use the local action (./) to analyze the project
@@ -59,8 +59,8 @@ jobs:
           commands: |
             npm install --no-package-lock
             ${{ matrix.test_command }}
-          # Point the action to the subfolder where we checked out the project
-          dir: test-project/${{ matrix.dir }}
+          # Point the action to the subfolder where the project lives
+          dir: test-repo/${{ matrix.dir }}
           node_version: "22"
           repository: ${{ matrix.repository }}
           triggers: ${{ matrix.triggers }}
