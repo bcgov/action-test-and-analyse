@@ -27,6 +27,7 @@
     "@aikidosec/safe-chain": "^1.1.10",
     "@eslint/js": "^10.0.1",
     "@vercel/ncc": "^0.38.4",
+    "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^10.2.0",
     "knip": "^6.0.0",
     "prettier": "^3.3.3",
