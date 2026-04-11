@@ -161,6 +161,19 @@ runs:
         ref: ${{ inputs.branch }}
         fetch-depth: 0
 
+    - name: Debug Directory Structure
+      if: steps.diff.outputs.triggered == 'true'
+      shell: bash
+      run: |
+        echo "Current Workspace: $GITHUB_WORKSPACE"
+        echo "Action Path: ${{ github.action_path }}"
+        echo "Root Contents:"
+        ls -F
+        if [ -d "test-project" ]; then
+          echo "Test Project Contents:"
+          ls -F test-project
+        fi
+
     # Setup node with caching
     - name: Setup Node.js
       uses: actions/setup-node@v6
