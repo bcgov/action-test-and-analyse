@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        name: [backend-triggered, backend-not-triggered, frontend-basic]
+        name: [backend-triggered, backend-not-triggered, frontend-basic, frontend-no-triggers, waste-frontend, java-basic]
         include:
           - name: backend-triggered
             dir: backend
@@ -36,6 +36,18 @@ jobs:
             expected_triggered: true
             repository: bcgov/quickstart-openshift
             test_command: npm run test:cov
+          - name: frontend-no-triggers
+            dir: frontend
+            expected_triggered: true
+            dep_scan: off
+            test_command: npm run test:cov
+            repository: bcgov/quickstart-openshift
+          - name: waste-frontend
+            dir: frontend
+            expected_triggered: true
+            dep_scan: warn
+            test_command: echo "Good enough for testing knip!"
+            repository: bcgov/nr-waste-plus
           - name: java-basic
             dir: backend
             language: java
@@ -56,7 +68,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: ${{ matrix.repository }}
-          path: test-repo
+          path: test-project
           fetch-depth: 0
 
       # 3. Use the local action (./) to analyze the project
@@ -68,7 +80,7 @@ jobs:
             npm install --no-package-lock
             ${{ matrix.test_command }}
           # Point the action to the subfolder where the project lives
-          dir: test-repo/${{ matrix.dir }}
+          dir: test-project/${{ matrix.dir }}
           node_version: "22"
           language: ${{ matrix.language || 'node' }}
           java_version: ${{ matrix.java_version || '21' }}

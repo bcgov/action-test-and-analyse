@@ -81,6 +81,10 @@ inputs:
     description: "Skip the internal checkout step. Useful for self-testing or when the project is already checked out."
     default: "false"
 
+  checkout_path:
+    description: "Path where the repository should be checked out. Default is current directory."
+    default: "."
+
 outputs:
   triggered:
     description: Whether the action was triggered based on path changes
@@ -132,16 +136,19 @@ runs:
       with:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         ref: ${{ inputs.diff_branch }}
+        # Use an isolated path to avoid wiping the manual checkout in self-tests
+        path: ".diff-triggers"
 
     # Final triggered state
     - id: final_triggered
       shell: bash
       run: |
+        TRIGGERED="false"
         if [ "${{ steps.diff.outputs.triggered }}" == "true" ] || [ "${{ steps.diff_actual.outputs.triggered }}" == "true" ]; then
-          echo "triggered=true" >> $GITHUB_OUTPUT
-        else
-          echo "triggered=false" >> $GITHUB_OUTPUT
+          TRIGGERED="true"
         fi
+        echo "triggered=$TRIGGERED" >> $GITHUB_OUTPUT
+        echo "FINAL TRIGGERED: $TRIGGERED"
 
 
     - name: Setup Supply Chain Scan
@@ -151,22 +158,23 @@ runs:
         npx -y @aikidosec/safe-chain setup-ci
 
     # Checkout the target repository - SonarCloud requires a full clone
-    - uses: actions/checkout@v6
-      if: steps.final_triggered.outputs.triggered == 'true' && inputs.skip_checkout != 'true'
+    - name: Internal Project Checkout
+      uses: actions/checkout@v6
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.skip_checkout != 'true' && inputs.skip_checkout != true
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.branch }}
-        path: ${{ inputs.dir }}
+        path: ${{ inputs.checkout_path }}
         fetch-depth: 0
 
 
-    # Setup node with caching
     - name: Setup Node.js
       uses: actions/setup-node@v6
       if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'node'
       with:
         node-version: ${{ inputs.node_version }}
         cache: ${{ inputs.cache }}
+        cache-dependency-path: ${{ inputs.dir }}/${{ inputs.cache == 'yarn' && 'yarn.lock' || (inputs.cache == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json') }}
 
     # Condition 2: Java Project Setup
     - name: Setup Java
@@ -176,6 +184,10 @@ runs:
         java-version: ${{ inputs.java_version }}
         distribution: ${{ inputs.java_distribution }}
         cache: ${{ (inputs.cache == 'maven' || inputs.cache == 'gradle' || inputs.cache == 'sbt') && inputs.cache || 'maven' }}
+        cache-dependency-path: |
+          ${{ inputs.dir }}/**/*.xml
+          ${{ inputs.dir }}/**/*.gradle*
+          ${{ inputs.dir }}/**/sbt
 
     # Condition 3: Python Project Setup
     - name: Setup Python
@@ -184,6 +196,10 @@ runs:
       with:
         python-version: ${{ inputs.python_version }}
         cache: ${{ (inputs.cache == 'pip' || inputs.cache == 'pipenv' || inputs.cache == 'poetry') && inputs.cache || 'pip' }}
+        cache-dependency-path: |
+          ${{ inputs.dir }}/**/requirements*.txt
+          ${{ inputs.dir }}/**/pyproject.toml
+          ${{ inputs.dir }}/**/Pipfile.lock
 
     # Run tests
     - if: steps.final_triggered.outputs.triggered == 'true'
