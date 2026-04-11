@@ -9,8 +9,29 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: write # For SonarCloud/Action comments
 
 jobs:
+  sonar:
+    name: SonarCloud
+    runs-on: ubuntu-24.04
+    # Only run if a token is present to avoid failing on forks
+    if: github.repository == 'bcgov/action-test-and-analyse'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: SonarCloud Analysis
+        uses: ./
+        with:
+          # Run actual unit tests for this repo during analysis
+          commands: |
+            npm install
+            npm test
+          dir: .
+          sonar_token: ${{ secrets.SONAR_TOKEN }}
+          dep_scan: warn
+
   tests:
     name: Tests
     runs-on: ubuntu-24.04
