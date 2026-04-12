@@ -174,7 +174,7 @@ runs:
       if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'node'
       with:
         node-version: ${{ inputs.node_version }}
-        cache: ${{ inputs.cache }}
+        cache: ${{ (inputs.cache == 'npm' || inputs.cache == 'yarn' || inputs.cache == 'pnpm') && inputs.cache || (inputs.cache == 'none' || inputs.cache == '' ? '' : 'npm') }}
         cache-dependency-path: ${{ inputs.dir }}/${{ inputs.cache == 'yarn' && 'yarn.lock' || (inputs.cache == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json') }}
 
     # Condition 2: Java Project Setup
@@ -196,7 +196,7 @@ runs:
       if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'python'
       with:
         python-version: ${{ inputs.python_version }}
-        cache: ${{ (inputs.cache == 'pip' || inputs.cache == 'pipenv' || inputs.cache == 'poetry') && inputs.cache || 'pip' }}
+        cache: ${{ (inputs.cache == 'pip' || inputs.cache == 'pipenv' || inputs.cache == 'poetry') && inputs.cache || (inputs.cache == 'none' || inputs.cache == '' ? '' : 'pip') }}
         cache-dependency-path: |
           ${{ inputs.dir }}/**/requirements*.txt
           ${{ inputs.dir }}/**/pyproject.toml
