@@ -49,6 +49,10 @@ inputs:
   sonar_token:
     description: Sonar token, provide unpopulated token for pre-setup (will skip)
 
+  sonar_scanner:
+    description: "Enable the separate SonarSource scanner step. Set to 'false' if using native reporting (e.g. mvn sonar:sonar)"
+    default: "true"
+
   triggers:
     description: Paths (array) used to trigger a build; e.g. ('./backend/' './frontend/)
 
@@ -205,10 +209,12 @@ runs:
     - if: steps.final_triggered.outputs.triggered == 'true'
       shell: bash
       working-directory: ${{ inputs.dir }}
+      env:
+        SONAR_TOKEN: ${{ inputs.sonar_token }}
       run: ${{ inputs.commands }}
 
     ### Optional SonarCloud
-    - if: ${{ inputs.sonar_token != '' && steps.final_triggered.outputs.triggered == 'true' }}
+    - if: ${{ inputs.sonar_token != '' && inputs.sonar_scanner == 'true' && steps.final_triggered.outputs.triggered == 'true' }}
       uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4 # v7.1.0
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
