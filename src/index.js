@@ -116,7 +116,8 @@ async function run() {
     core.setOutput('total_issues', stats.totalIssues);
 
     const hasKnipIssues = language === 'node' && stats.totalIssues > 0;
-    const hasTestFailures = testResults.failed > 0;
+    const testFailSignal = process.env.TEST_FAIL_SIGNAL === 'true';
+    const hasTestFailures = (testResults.failed > 0) || testFailSignal;
 
     if (process.env.GITHUB_STEP_SUMMARY) {
       const summary = core.summary.addHeading(`🔍 ${language.toUpperCase()} Analysis Results`);

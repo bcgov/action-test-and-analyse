@@ -230,7 +230,15 @@ runs:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
         MAVEN_OPTS: "-Xmx2560m -XX:MaxMetaspaceSize=512m -Djava.awt.headless=true -XX:+HeapDumpOnOutOfMemoryError"
         _JAVA_OPTIONS: "-Xmx2560m"
-      run: ${{ inputs.commands }}
+      run: |
+        set +e
+        ${{ inputs.commands }}
+        CMD_EXIT_CODE=$?
+        set -e
+        if [ $CMD_EXIT_CODE -ne 0 ]; then
+          echo "TEST_FAIL_SIGNAL=true" >> $GITHUB_ENV
+        fi
+        exit 0 # Allow the next step (reporter) to run
 
     ### Optional SonarCloud
     - if: inputs.sonar_token != '' && steps.final_triggered.outputs.triggered == 'true' && inputs.language != 'java'
