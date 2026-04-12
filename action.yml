@@ -156,7 +156,7 @@ runs:
       shell: bash
       continue-on-error: true # Don't let a setup-ci issue kill the whole run
       run: |
-        npx -y @aikidosec/safe-chain@1.1.10 setup-ci
+        npx -y @aikidosec/safe-chain setup-ci
 
     # Checkout the target repository - SonarCloud requires a full clone
     - name: Internal Project Checkout
@@ -242,9 +242,9 @@ runs:
 
           # Run knip using npx
           set +e
-          npx -y knip@5.11.0 --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
+          npx -y knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
           KNIP_EXIT_CODE=$?
-          npx -y knip@5.11.0 --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
+          npx -y knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
           set -e
         fi
 
