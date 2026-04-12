@@ -42,15 +42,37 @@ describe('JUnit XML Parsing', () => {
         expect(results.failed).toBe(0);
     });
 
+    it('should handle completely empty input', () => {
+        const results = parseJUnitXmlContent('');
+        expect(results.total).toBe(0);
+        expect(results.failed).toBe(0);
+    });
+
+    it('should handle malformed XML gracefully', () => {
+        const xml = `<testsuite tests="5" failures="2" < malformed`;
+        const results = parseJUnitXmlContent(xml);
+        expect(results.total).toBe(0);
+        expect(results.failed).toBe(0);
+    });
+
+    it('should handle testsuites with no testsuite children', () => {
+        const xml = `<testsuites></testsuites>`;
+        const results = parseJUnitXmlContent(xml);
+        expect(results.total).toBe(0);
+        expect(results.failed).toBe(0);
+    });
+
     it('should summarize multiple files correctly', () => {
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'junit-test-'));
         const file1 = path.join(tempDir, 'res1.xml');
         const file2 = path.join(tempDir, 'res2.xml');
+        const file3 = path.join(tempDir, 'empty.xml');
         
         fs.writeFileSync(file1, '<testsuite tests="2" failures="0" />');
         fs.writeFileSync(file2, '<testsuite tests="3" failures="1" />');
+        fs.writeFileSync(file3, '');
 
-        const summary = summarizeJUnitXmlFiles([file1, file2]);
+        const summary = summarizeJUnitXmlFiles([file1, file2, file3]);
         expect(summary.total).toBe(5);
         expect(summary.failed).toBe(1);
         expect(summary.passed).toBe(4);

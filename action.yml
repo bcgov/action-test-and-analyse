@@ -223,33 +223,32 @@ runs:
           ${{ inputs.sonar_args }}
 
     # Run Analysis Tools (Knip for Node, Test Reports for others)
-    - name: Run Analysis
-      id: analysis
-      if: steps.final_triggered.outputs.triggered == 'true' && inputs.dep_scan != 'off'
+    - name: Knip Dependency Analysis
+      id: knip_analysis
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.dep_scan != 'off' && inputs.language == 'node'
       working-directory: ${{ inputs.dir }}
       shell: bash
       run: |
-        set -e
-        # Clean up
-        rm -f knip-output.json knip-summary.txt
-
-        # Only run Knip for Node projects
-        if [ "${{ inputs.language }}" == "node" ]; then
-          # Set config
-          if [ -n "${{ inputs.knip_config }}" ]; then
-            KNIP_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
-          else
-            KNIP_CONFIG="--config=${{ github.action_path }}/.knip.json --no-config-hints"
-          fi
-
-          # Run knip using npx
-          set +e
-          npx -y knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
-          KNIP_EXIT_CODE=$?
-          npx -y knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
-          set -e
+        # Set config
+        if [ -n "${{ inputs.knip_config }}" ]; then
+          KNIP_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
+        else
+          KNIP_CONFIG="--config=${{ github.action_path }}/.knip.json --no-config-hints"
         fi
 
+        # Run knip using npx
+        set +e
+        npx -y knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
+        KNIP_EXIT_CODE=$?
+        npx -y knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\u001b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
+        set -e
+
+    - name: Process Reports and Analysis
+      id: analysis
+      if: steps.final_triggered.outputs.triggered == 'true'
+      working-directory: ${{ inputs.dir }}
+      shell: bash
+      run: |
         # Process results with the bundled action script (shared logic)
         export INPUT_DIR="${{ inputs.dir }}"
         export INPUT_DEP_SCAN="${{ inputs.dep_scan }}"

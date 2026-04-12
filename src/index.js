@@ -10,13 +10,12 @@ import { analyzeKnip } from './knip.js';
 
 export function findJUnitXmlFiles(dir) {
   const reports = [];
+  // Focus on standard build artifacts to avoid noise in project root
   const searchPaths = [
     '**/target/surefire-reports/*.xml',
     '**/target/failsafe-reports/*.xml',
     '**/build/test-results/**/*.xml',
-    '**/junit.xml',
-    '**/junit*.xml',
-    '**/test-results.xml',
+    '**/test-results/**/*.xml'
   ];
 
   for (const pattern of searchPaths) {
@@ -34,14 +33,20 @@ export function findJUnitXmlFiles(dir) {
 export function parseJUnitXmlContent(xmlContent) {
   if (!xmlContent || xmlContent.trim().length === 0) return { total: 0, failed: 0, skipped: 0 };
   
-  const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
-  const jsonObj = parser.parse(xmlContent);
+  let jsonObj;
+  try {
+    const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
+    jsonObj = parser.parse(xmlContent);
+  } catch (err) {
+    core.debug(`Malformed XML content: ${err.message}`);
+    return { total: 0, failed: 0, skipped: 0 };
+  }
   
   let rawSuites = [];
-  if (jsonObj.testsuites) {
+  if (jsonObj && jsonObj.testsuites) {
     const ts = jsonObj.testsuites.testsuite || jsonObj.testsuites.testsuites;
     rawSuites = Array.isArray(ts) ? ts : (ts ? [ts] : []);
-  } else if (jsonObj.testsuite) {
+  } else if (jsonObj && jsonObj.testsuite) {
     rawSuites = [jsonObj.testsuite];
   }
   
@@ -147,14 +152,23 @@ async function run() {
       }
       await summary.write();
     } else {
-       // CLI Fallback Output
-       core.info(`\n🔍 ${language.toUpperCase()} Analysis Results`);
-       if (language === 'node') {
-         core.info(`Knip: ${stats.totalIssues} issues (${stats.unusedFiles} files, ${stats.unusedDeps} deps)`);
-       }
-       if (testResults.total > 0) {
-         core.info(`Tests: ${testResults.total} total, ${testResults.passed} passed, ${testResults.failed} failed`);
-       }
+      // CLI Fallback Output
+      const title = `🔍 ${language.toUpperCase()} Analysis Results`;
+      console.log(`\n${title}`);
+      console.log('='.repeat(title.length));
+      
+      if (language === 'node') {
+        console.log(`Knip: ${stats.totalIssues} issues found`);
+        console.log(`  - Unused files: ${stats.unusedFiles}`);
+        console.log(`  - Unused dependencies: ${stats.unusedDeps}`);
+      }
+      
+      if (testResults.total > 0) {
+        console.log(`Tests: ${testResults.total} total`);
+        console.log(`  - ✅ Passed: ${testResults.passed}`);
+        console.log(`  - ❌ Failed: ${testResults.failed}`);
+        console.log(`  - ⏭️  Skipped: ${testResults.skipped}`);
+      }
     }
 
     if (language === 'node' && hasKnipIssues && depScan === 'error') {
