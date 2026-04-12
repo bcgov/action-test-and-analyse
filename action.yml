@@ -208,10 +208,12 @@ runs:
       working-directory: ${{ inputs.dir }}
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
+        MAVEN_OPTS: "-Xmx2048m -XX:MaxMetaspaceSize=512m"
+        _JAVA_OPTIONS: "-Xmx2048m"
       run: ${{ inputs.commands }}
 
     ### Optional SonarCloud
-    - if: ${{ inputs.sonar_token != '' && steps.final_triggered.outputs.triggered == 'true' }}
+    - if: inputs.sonar_token != '' && steps.final_triggered.outputs.triggered == 'true' && inputs.language != 'java'
       uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4 # v7.1.0
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
