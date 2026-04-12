@@ -184,7 +184,7 @@ runs:
       with:
         java-version: ${{ inputs.java_version }}
         distribution: ${{ inputs.java_distribution }}
-        cache: ${{ (inputs.cache == 'maven' || inputs.cache == 'gradle' || inputs.cache == 'sbt') && inputs.cache || 'maven' }}
+        cache: ${{ (inputs.cache == 'maven' || inputs.cache == 'gradle' || inputs.cache == 'sbt') && inputs.cache || (inputs.cache == 'none' || inputs.cache == '' ? '' : 'maven') }}
         cache-dependency-path: |
           ${{ inputs.dir }}/**/*.xml
           ${{ inputs.dir }}/**/*.gradle*
@@ -208,7 +208,7 @@ runs:
       working-directory: ${{ inputs.dir }}
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
-        MAVEN_OPTS: "-Xmx2560m -XX:MaxMetaspaceSize=512m -Djava.awt.headless=true"
+        MAVEN_OPTS: "-Xmx2560m -XX:MaxMetaspaceSize=512m -Djava.awt.headless=true -XX:+HeapDumpOnOutOfMemoryError"
         _JAVA_OPTIONS: "-Xmx2560m"
       run: ${{ inputs.commands }}
 
