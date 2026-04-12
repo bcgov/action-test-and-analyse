@@ -82,7 +82,7 @@ jobs:
             ${{ matrix.test_command }}
           # Point the action to the subfolder where the project lives
           dir: test-project/${{ matrix.dir }}
-          node_version: "22"
+          node_version: "24"
           language: ${{ matrix.language || 'node' }}
           java_version: ${{ matrix.java_version || '21' }}
           repository: ${{ matrix.repository }}
