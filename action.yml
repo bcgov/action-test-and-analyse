@@ -208,8 +208,8 @@ runs:
       working-directory: ${{ inputs.dir }}
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
-        MAVEN_OPTS: "-Xmx3072m -XX:MaxMetaspaceSize=512m"
-        _JAVA_OPTIONS: "-Xmx3072m"
+        MAVEN_OPTS: "-Xmx2560m -XX:MaxMetaspaceSize=512m -Djava.awt.headless=true"
+        _JAVA_OPTIONS: "-Xmx2560m"
       run: ${{ inputs.commands }}
 
     ### Optional SonarCloud
