@@ -158,6 +158,26 @@ runs:
       run: |
         npx -y @aikidosec/safe-chain setup-ci
 
+    - name: Determine Cache Type
+      id: cache_logic
+      shell: bash
+      run: |
+        CACHE_VAL="${{ inputs.cache }}"
+        LANG="${{ inputs.language }}"
+        RESULT=""
+        
+        if [ "$CACHE_VAL" == "none" ]; then
+           RESULT=""
+        elif [ "$LANG" == "node" ]; then
+           if [[ "$CACHE_VAL" == "yarn" || "$CACHE_VAL" == "pnpm" ]]; then RESULT="$CACHE_VAL"; else RESULT="npm"; fi
+        elif [ "$LANG" == "java" ]; then
+           if [[ "$CACHE_VAL" == "gradle" || "$CACHE_VAL" == "sbt" ]]; then RESULT="$CACHE_VAL"; else RESULT="maven"; fi
+        elif [ "$LANG" == "python" ]; then
+           if [[ "$CACHE_VAL" == "pipenv" || "$CACHE_VAL" == "poetry" ]]; then RESULT="$CACHE_VAL"; else RESULT="pip"; fi
+        fi
+        echo "cache=$RESULT" >> $GITHUB_OUTPUT
+        echo "Determined cache type: '$RESULT' for language: $LANG (original input: '$CACHE_VAL')"
+
     # Checkout the target repository - SonarCloud requires a full clone
     - name: Internal Project Checkout
       uses: actions/checkout@v6
@@ -174,8 +194,8 @@ runs:
       if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'node'
       with:
         node-version: ${{ inputs.node_version }}
-        cache: ${{ (inputs.cache == 'npm' || inputs.cache == 'yarn' || inputs.cache == 'pnpm') && inputs.cache || (inputs.cache == 'none' || inputs.cache == '' ? '' : 'npm') }}
-        cache-dependency-path: ${{ inputs.dir }}/${{ inputs.cache == 'yarn' && 'yarn.lock' || (inputs.cache == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json') }}
+        cache: ${{ steps.cache_logic.outputs.cache }}
+        cache-dependency-path: ${{ inputs.dir }}/${{ steps.cache_logic.outputs.cache == 'yarn' && 'yarn.lock' || (steps.cache_logic.outputs.cache == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json') }}
 
     # Condition 2: Java Project Setup
     - name: Setup Java
@@ -184,7 +204,7 @@ runs:
       with:
         java-version: ${{ inputs.java_version }}
         distribution: ${{ inputs.java_distribution }}
-        cache: ${{ (inputs.cache == 'maven' || inputs.cache == 'gradle' || inputs.cache == 'sbt') && inputs.cache || (inputs.cache == 'none' || inputs.cache == '' ? '' : 'maven') }}
+        cache: ${{ steps.cache_logic.outputs.cache }}
         cache-dependency-path: |
           ${{ inputs.dir }}/**/*.xml
           ${{ inputs.dir }}/**/*.gradle*
@@ -196,7 +216,7 @@ runs:
       if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'python'
       with:
         python-version: ${{ inputs.python_version }}
-        cache: ${{ (inputs.cache == 'pip' || inputs.cache == 'pipenv' || inputs.cache == 'poetry') && inputs.cache || (inputs.cache == 'none' || inputs.cache == '' ? '' : 'pip') }}
+        cache: ${{ steps.cache_logic.outputs.cache }}
         cache-dependency-path: |
           ${{ inputs.dir }}/**/requirements*.txt
           ${{ inputs.dir }}/**/pyproject.toml
