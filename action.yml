@@ -156,7 +156,7 @@ runs:
       shell: bash
       continue-on-error: true # Don't let a setup-ci issue kill the whole run
       run: |
-        npx -y @aikidosec/safe-chain@1.0.8 setup-ci
+        npx -y @aikidosec/safe-chain@1.1.10 setup-ci
 
     # Checkout the target repository - SonarCloud requires a full clone
     - name: Internal Project Checkout

@@ -24,24 +24,24 @@ jobs:
             triggers: ""
             expected_triggered: true
             repository: bcgov/quickstart-openshift
-            test_command: npm run test:cov
+            test_command: npm install --no-package-lock && npm run test:cov
           - name: backend-not-triggered
             dir: backend
             triggers: "('not-existent-path/')"
             expected_triggered: false
             repository: bcgov/quickstart-openshift
-            test_command: npm run test:cov
+            test_command: npm install --no-package-lock && npm run test:cov
           - name: frontend-basic
             dir: frontend
             triggers: ""
             expected_triggered: true
             repository: bcgov/quickstart-openshift
-            test_command: npm run test:cov
+            test_command: npm install --no-package-lock && npm run test:cov
           - name: frontend-no-triggers
             dir: frontend
             expected_triggered: true
             dep_scan: off
-            test_command: npm run test:cov
+            test_command: npm install --no-package-lock && npm run test:cov
             repository: bcgov/quickstart-openshift
           - name: waste-frontend
             dir: frontend
@@ -78,7 +78,6 @@ jobs:
         with:
           skip_checkout: "true"
           commands: |
-            npm install --no-package-lock
             ${{ matrix.test_command }}
           # Point the action to the subfolder where the project lives
           dir: test-project/${{ matrix.dir }}
