@@ -11,31 +11,45 @@ import { analyzeKnip } from './knip.js';
 export function findJUnitXmlFiles(dir) {
   const reports = [];
   const searchPaths = [
-    'target/surefire-reports/*.xml',
-    'target/failsafe-reports/*.xml',
-    'build/test-results/**/*.xml',
+    '**/target/surefire-reports/*.xml',
+    '**/target/failsafe-reports/*.xml',
+    '**/build/test-results/**/*.xml',
+    '**/junit.xml',
     '**/junit*.xml',
     '**/test-results.xml',
   ];
 
   for (const pattern of searchPaths) {
-    const fullPattern = path.join(process.cwd(), pattern);
-    const files = glob.sync(fullPattern);
+    const files = glob.sync(pattern, {
+      cwd: dir,
+      absolute: true,
+      ignore: ['**/node_modules/**']
+    });
     reports.push(...files);
   }
-  return reports;
+  // De-duplicate if patterns overlap
+  return [...new Set(reports)];
 }
 
 export function parseJUnitXmlContent(xmlContent) {
+  if (!xmlContent || xmlContent.trim().length === 0) return { total: 0, failed: 0, skipped: 0 };
+  
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
   const jsonObj = parser.parse(xmlContent);
-  const suitesRoot = jsonObj.testsuite
-    || (jsonObj.testsuites && (jsonObj.testsuites.testsuite || jsonObj.testsuites.testsuites));
   
-  const suites = Array.isArray(suitesRoot) ? suitesRoot : (suitesRoot ? [suitesRoot] : []);
+  let rawSuites = [];
+  if (jsonObj.testsuites) {
+    const ts = jsonObj.testsuites.testsuite || jsonObj.testsuites.testsuites;
+    rawSuites = Array.isArray(ts) ? ts : (ts ? [ts] : []);
+  } else if (jsonObj.testsuite) {
+    rawSuites = [jsonObj.testsuite];
+  }
+  
   const results = { total: 0, failed: 0, skipped: 0 };
 
-  suites.forEach(suite => {
+  rawSuites.forEach(suite => {
+    // Some reporters put stats at the suite level, others at the case level
+    // We prioritize suite attributes if they exist, otherwise we'd need to count cases (complexity++)
     results.total += parseInt(suite.tests || 0);
     results.failed += parseInt(suite.failures || 0) + parseInt(suite.errors || 0);
     results.skipped += parseInt(suite.skipped || 0);

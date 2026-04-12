@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseJUnitXmlContent, summarizeJUnitXmlFiles } from '../src/index.js';
+import { parseJUnitXmlContent, summarizeJUnitXmlFiles, findJUnitXmlFiles } from '../src/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -54,6 +54,30 @@ describe('JUnit XML Parsing', () => {
         expect(summary.total).toBe(5);
         expect(summary.failed).toBe(1);
         expect(summary.passed).toBe(4);
+
+        // Cleanup
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('should find reports while ignoring node_modules', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'junit-find-'));
+        const projDir = path.join(tempDir, 'project');
+        const nmDir = path.join(projDir, 'node_modules', 'some-pkg');
+        const targetDir = path.join(projDir, 'target', 'surefire-reports');
+        
+        fs.mkdirSync(nmDir, { recursive: true });
+        fs.mkdirSync(targetDir, { recursive: true });
+        
+        const validReport = path.join(targetDir, 'TEST-valid.xml');
+        const invalidReport = path.join(nmDir, 'junit.xml');
+        
+        fs.writeFileSync(validReport, '<testsuite tests="1" />');
+        fs.writeFileSync(invalidReport, '<testsuite tests="1" />');
+
+        const found = findJUnitXmlFiles(projDir);
+        expect(found).toHaveLength(1);
+        expect(found[0]).toContain('TEST-valid.xml');
+        expect(found).not.toContain(invalidReport);
 
         // Cleanup
         fs.rmSync(tempDir, { recursive: true, force: true });
