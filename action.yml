@@ -152,7 +152,7 @@ runs:
 
 
     - name: Setup Supply Chain Scan
-      if: steps.final_triggered.outputs.triggered == 'true' && inputs.supply_scan == 'true'
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.supply_scan == 'true' && inputs.language == 'node'
       shell: bash
       continue-on-error: true # Don't let a setup-ci issue kill the whole run
       run: |
