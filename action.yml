@@ -155,7 +155,7 @@ runs:
       if: steps.final_triggered.outputs.triggered == 'true' && inputs.supply_scan == 'true'
       shell: bash
       run: |
-        npx -y @aikidosec/safe-chain setup-ci
+        npx -y @aikidosec/safe-chain@1.0.8 setup-ci
 
     # Checkout the target repository - SonarCloud requires a full clone
     - name: Internal Project Checkout
@@ -239,11 +239,11 @@ runs:
             KNIP_CONFIG="--config=${{ github.action_path }}/.knip.json --no-config-hints"
           fi
 
-          # Run knip using the action's bundled version
+          # Run knip using npx
           set +e
-          npx -y knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
+          npx -y knip@5.11.0 --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
           KNIP_EXIT_CODE=$?
-          npx -y knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
+          npx -y knip@5.11.0 --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
           set -e
         fi
 
