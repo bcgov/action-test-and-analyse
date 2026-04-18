@@ -18,6 +18,9 @@
 # Universal Test and Analyze with Triggers, SonarCloud, and Multi-Language Support
  
  This action runs tests and analysis across the BC Gov ecosystem, optionally sending results and coverage to [SonarCloud](https://sonarcloud.io). It supports **Node.js, Java, and Python** projects with unified reporting, supply chain scanning, and dependency analysis.
+
+> [!IMPORTANT]
+> **Deprecation Notice**: This action now natively supports Java. If you are using `bcgov/action-test-and-analyse-java`, you should migrate to this universal action. The Java-specific repository is now considered redundant.
  
  Conditional triggers are used to determine whether tests need to be run. If triggers are matched, the appropriate code is tested. Tests always run if no triggers are provided.
  
@@ -29,60 +32,48 @@
 # Usage
 
 ```yaml
-- uses: bcgov/action-test-and-analyse@x.y.z
+- uses: bcgov/action-test-and-analyse@v2
   with:
-    ### Required
+    ### Language Selection
+    # Primary language of the project. Options: node (default), java, python
+    language: node
 
-    # Commands to run tests
-    # Please configure your app to generate coverage (coverage/lcov.info)
+    ### Required
+    # Commands to run tests (e.g., 'npm test' or 'mvn verify')
     commands: |
       npm ci
       npm run test:cov
 
-    # Project/app directory
+    # Project/app directory (relative to workspace root)
     dir: frontend
 
-    # Node.js version (for Node projects)
-    # Default is "24" (LTS)
+    ### Versioning
+    # Node.js version (for Node projects). Default: "24"
     node_version: "24"
     
-    # Primary language of the project
-    # Options: node (default), java, python
-    language: node
-    
-    # Java version (for Java projects)
-    # Default is "21"
+    # Java version (for Java projects). Default: "21"
     java_version: "21"
 
-    ### Typical / recommended
+    # Python version (for Python projects). Default: "3.12"
+    python_version: "3.12"
 
-    # Sonar arguments
-    # https://docs.sonarcloud.io/advanced-setup/analysis-parameters/
+    ### Typical / recommended
+    # Sonar token available from sonarcloud.io
+    sonar_token: ${{ secrets.SONAR_TOKEN }}
+
+    # Sonar arguments (https://docs.sonarcloud.io/advanced-setup/analysis-parameters/)
     sonar_args: |
-        -Dsonar.exclusions=**/coverage/**,**/node_modules/**
         -Dsonar.organization=bcgov-sonarcloud
         -Dsonar.projectKey=bcgov_${{ github.repository }}
 
-    # Sonar token
-    # Available from sonarcloud.io or your organization administrator
-    # BCGov uses https://github.com/BCDevOps/devops-requests/issues/new/choose
-    # Provide an unpopulated token for pre-setup, section will be skipped
-    sonar_token: ${{ secrets.SONAR_TOKEN }}
+    # Bash array to diff for build triggering (e.g., ('frontend/'))
+    # Optional; if omitted, tests always run.
+    triggers: ""
 
-    # Bash array to diff for build triggering
-    # Optional, defaults to nothing, which forces a build
-    triggers: ('frontend/')
-
-    # Enable supply chain attack detection using @aikidosec/safe-chain
-    # Optional, defaults to true (enabled by default for security)
-    # Detects and blocks malicious packages during npm ci
-    # Set to false to disable
+    # Enable supply chain attack detection (Node only). Default: true
     supply_scan: true
 
-    # Enable dependency and export analysis using Knip
-    # Optional, defaults to warn (runs but doesn't fail)
-    # Options: off (skip), warn (run but don't fail), error (run and fail on issues)
-    # Analyzes JS/TS projects for unused dependencies and exports
+    # Knip dependency analysis (Node only). Options: off, warn (default), error
     dep_scan: warn
 
     ### Usually a bad idea / not recommended
@@ -402,7 +393,7 @@ For complete configuration options, see the [Knip documentation](https://knip.de
 
 ## Requirements
 
-- JavaScript or TypeScript projects only
+- JavaScript or TypeScript projects only (for Knip analysis)
 - Project must have a `package.json` file
 - Works best with projects that have clear entry points defined in configuration
 
