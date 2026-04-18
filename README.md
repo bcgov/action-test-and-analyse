@@ -161,7 +161,7 @@ jobs:
     name: Test and Analyze
     runs-on: ubuntu-24.04
     steps:
-      - uses: bcgov/action-test-and-analyse@x.y.z
+      - uses: bcgov/action-test-and-analyse@v2
         with:
           commands: |
             npm ci
@@ -193,7 +193,7 @@ jobs:
             triggers: ('backend/' 'charts/backend')
     steps:
       - uses: actions/checkout@v5
-      - uses: bcgov/action-test-and-analyse@x.y.z
+      - uses: bcgov/action-test-and-analyse@v2
         with:
           commands: |
             npm ci
@@ -220,7 +220,7 @@ Has the action been triggered by path changes? \[true|false\]
 
 ```yaml
 - id: test
-  uses: bcgov/action-test-and-analyse@x.y.z
+  uses: bcgov/action-test-and-analyse@v2
   with:
     commands: |
       npm ci
@@ -259,7 +259,7 @@ Supply chain scanning is enabled by default. No configuration is required - it w
 ⚠️ **WARNING**: Disabling supply chain scanning is dangerous and strongly discouraged. It leaves your project vulnerable to malicious packages, typosquatting, and supply chain attacks. Only disable if absolutely necessary and you understand the security risks. If you must disable, set `supply_scan: false` in your workflow:
 
 ```yaml
-- uses: bcgov/action-test-and-analyse@x.y.z
+- uses: bcgov/action-test-and-analyse@v2
   with:
     commands: |
       npm ci
@@ -293,7 +293,7 @@ The `dep_scan` parameter supports three modes:
 ### Example: Warn Mode (Default)
 
 ```yaml
-- uses: bcgov/action-test-and-analyse@x.y.z
+- uses: bcgov/action-test-and-analyse@v2
   with:
     commands: |
       npm ci
@@ -306,7 +306,7 @@ The `dep_scan` parameter supports three modes:
 ### Example: Error Mode (Enforce Cleanup)
 
 ```yaml
-- uses: bcgov/action-test-and-analyse@x.y.z
+- uses: bcgov/action-test-and-analyse@v2
   with:
     commands: |
       npm ci
@@ -345,7 +345,7 @@ The default configuration excludes the following packages that are commonly flag
 When `knip_config` is not provided, the action uses its default configuration. If you need a custom configuration, specify it using the `knip_config` parameter:
 
 ```yaml
-- uses: bcgov/action-test-and-analyse@x.y.z
+- uses: bcgov/action-test-and-analyse@v2
   with:
     dep_scan: error
     knip_config: "configs/custom.knip.json"  # Path is relative to the GitHub workspace root, not to the `dir` input

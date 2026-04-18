@@ -136,8 +136,6 @@ runs:
       with:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         ref: ${{ inputs.diff_branch }}
-        # Use an isolated path to avoid wiping the manual checkout in self-tests
-        path: ".diff-triggers"
 
     # Final triggered state
     - id: final_triggered

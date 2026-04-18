@@ -15,7 +15,9 @@ export function findJUnitXmlFiles(dir) {
     '**/target/surefire-reports/*.xml',
     '**/target/failsafe-reports/*.xml',
     '**/build/test-results/**/*.xml',
-    '**/test-results/**/*.xml'
+    '**/test-results/**/*.xml',
+    '**/junit.xml',
+    '**/*report.xml'
   ];
 
   for (const pattern of searchPaths) {
