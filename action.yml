@@ -228,12 +228,13 @@ runs:
       working-directory: ${{ inputs.dir }}
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
-        MAVEN_OPTS: "-Xmx2560m -XX:MaxMetaspaceSize=512m -Djava.awt.headless=true -XX:+HeapDumpOnOutOfMemoryError"
-        _JAVA_OPTIONS: "-Xmx2560m"
+        MAVEN_OPTS: "-Xmx2048m -Xss2m -XX:MaxMetaspaceSize=512m -Djava.awt.headless=true -XX:+HeapDumpOnOutOfMemoryError"
+        _JAVA_OPTIONS: "-Xmx2048m -Xss2m"
       run: |
         set +e
-        ${{ inputs.commands }}
+        ${{ inputs.commands }} > test_output.log 2>&1
         CMD_EXIT_CODE=$?
+        cat test_output.log
         set -e
         if [ $CMD_EXIT_CODE -ne 0 ]; then
           echo "TEST_FAIL_SIGNAL=true" >> $GITHUB_ENV
