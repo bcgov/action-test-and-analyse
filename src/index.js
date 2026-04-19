@@ -1,95 +1,192 @@
 #!/usr/bin/env node
+/* eslint-disable no-control-regex */
 
-import * as core from '@actions/core';
-import { analyzeKnip } from './knip.js';
 import fs from 'node:fs';
+import path from 'node:path';
+import { XMLParser } from 'fast-xml-parser';
+import * as core from '@actions/core';
+import { glob } from 'glob';
+import { analyzeKnip } from './knip.js';
+
+export function findJUnitXmlFiles(dir) {
+  const reports = [];
+  // Focus on standard build artifacts to avoid noise in project root
+  const searchPaths = [
+    '**/target/surefire-reports/*.xml',
+    '**/target/failsafe-reports/*.xml',
+    '**/build/test-results/**/*.xml',
+    '**/test-results/**/*.xml',
+    '**/junit.xml',
+    '**/*report.xml'
+  ];
+
+  for (const pattern of searchPaths) {
+    const files = glob.sync(pattern, {
+      cwd: dir,
+      absolute: true,
+      ignore: ['**/node_modules/**']
+    });
+    reports.push(...files);
+  }
+  // De-duplicate if patterns overlap
+  return [...new Set(reports)];
+}
+
+export function parseJUnitXmlContent(xmlContent) {
+  if (!xmlContent || xmlContent.trim().length === 0) return { total: 0, failed: 0, skipped: 0 };
+  
+  let jsonObj;
+  try {
+    const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
+    jsonObj = parser.parse(xmlContent);
+  } catch (err) {
+    core.debug(`Malformed XML content: ${err.message}`);
+    return { total: 0, failed: 0, skipped: 0 };
+  }
+  
+  let rawSuites = [];
+  if (jsonObj && jsonObj.testsuites) {
+    const ts = jsonObj.testsuites.testsuite || jsonObj.testsuites.testsuites;
+    rawSuites = Array.isArray(ts) ? ts : (ts ? [ts] : []);
+  } else if (jsonObj && jsonObj.testsuite) {
+    rawSuites = [jsonObj.testsuite];
+  }
+  
+  const results = { total: 0, failed: 0, skipped: 0 };
+
+  rawSuites.forEach(suite => {
+    // Some reporters put stats at the suite level, others at the case level
+    // We prioritize suite attributes if they exist, otherwise we'd need to count cases (complexity++)
+    results.total += parseInt(suite.tests || 0);
+    results.failed += parseInt(suite.failures || 0) + parseInt(suite.errors || 0);
+    results.skipped += parseInt(suite.skipped || 0);
+  });
+  return results;
+}
+
+export function summarizeJUnitXmlFiles(xmlFiles) {
+  const testResults = { total: 0, passed: 0, failed: 0, skipped: 0 };
+  xmlFiles.forEach(file => {
+    try {
+      const xmlContent = fs.readFileSync(file, 'utf8');
+      const parsed = parseJUnitXmlContent(xmlContent);
+      testResults.total += parsed.total;
+      testResults.failed += parsed.failed;
+      testResults.skipped += parsed.skipped;
+    } catch (err) {
+      core.debug(`Failed to parse XML report ${file}: ${err.message}`);
+    }
+  });
+  testResults.passed = testResults.total - testResults.failed - testResults.skipped;
+  return testResults;
+}
 
 /**
  * Main entry point for the action/CLI.
  */
 async function run() {
   try {
-    // Inputs from GitHub Actions (or fallback to environment/defaults for CLI)
-    const dir = core.getInput('dir') || process.env.KNIP_DIR || '.';
+    const dir = core.getInput('dir') || '.';
+    const depScan = core.getInput('dep_scan') || 'off';
     const knipOutputFile = core.getInput('knip_output') || 'knip-output.json';
-    const depScan = core.getInput('dep_scan') || 'warn';
+    const language = core.getInput('language') || 'node';
     const knipSummaryFile = 'knip-summary.txt';
 
-    core.info(`Starting analysis in directory: ${dir}`);
+    core.info(`Starting logic for language: ${language} in directory: ${dir}`);
 
-    if (!fs.existsSync(knipOutputFile)) {
-       core.info(`No Knip output found at ${knipOutputFile}. Skipping analysis.`);
-       return;
+    let stats = { unusedFiles: 0, unusedDeps: 0, unusedDevDeps: 0, unusedExports: 0, totalIssues: 0 };
+
+    if (language === 'node' && fs.existsSync(knipOutputFile)) {
+      try {
+        stats = analyzeKnip(knipOutputFile, dir);
+      } catch (error) {
+        core.warning(`Failed to analyze Knip output: ${error.message}`);
+      }
     }
 
-    let stats;
-    try {
-      stats = analyzeKnip(knipOutputFile, dir);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      core.warning(`Failed to analyze Knip output at ${knipOutputFile}: ${message}. Skipping analysis.`);
-      if (depScan === 'error') {
-        core.info('Knip analysis output could not be parsed; skipping dependency analysis instead of failing the workflow.');
-      }
-      return;
+    let testResults = { total: 0, passed: 0, failed: 0, skipped: 0 };
+    if (language === 'java' || language === 'python') {
+        const xmlFiles = findJUnitXmlFiles(dir);
+        if (xmlFiles.length > 0) {
+            core.info(`Found ${xmlFiles.length} XML test reports.`);
+            testResults = summarizeJUnitXmlFiles(xmlFiles);
+        }
     }
     
-    // Set outputs for the action
     core.setOutput('unused_files', stats.unusedFiles);
     core.setOutput('unused_deps', stats.unusedDeps);
     core.setOutput('total_issues', stats.totalIssues);
 
-    // Create Step Summary
+    const hasKnipIssues = language === 'node' && stats.totalIssues > 0;
+    const testFailSignal = process.env.TEST_FAIL_SIGNAL === 'true';
+    const hasTestFailures = (testResults.failed > 0) || testFailSignal;
+
     if (process.env.GITHUB_STEP_SUMMARY) {
-      const summary = core.summary
-        .addHeading('🔍 Knip Analysis Results')
-        .addTable([
+      const summary = core.summary.addHeading(`🔍 ${language.toUpperCase()} Analysis Results`);
+      
+      if (language === 'node') {
+        summary.addTable([
           ['Category', 'Count'],
           ['Unused files', stats.unusedFiles.toString()],
           ['Unused dependencies', stats.unusedDeps.toString()],
           ['Unused devDependencies', stats.unusedDevDeps.toString()],
           ['Unused exports', stats.unusedExports.toString()]
         ]);
-
-      // If a summary text file exists (generated by the raw knip run), include it
-      if (fs.existsSync(knipSummaryFile)) {
-        const detail = fs.readFileSync(knipSummaryFile, 'utf8');
-        summary.addHeading('📋 Full Output', 3)
-          .addCodeBlock(detail.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')); // Strip ANSI colors
+        if (fs.existsSync(knipSummaryFile)) {
+          const detail = fs.readFileSync(knipSummaryFile, 'utf8');
+          summary.addHeading('📋 Knip Full Output', 3).addCodeBlock(detail.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, ''));
+        }
       }
 
-      if (stats.totalIssues > 0) {
-        summary.addRaw(`\n⚠️ **Issues found** - See annotations in the Checks tab for details`);
-      } else {
-        summary.addRaw(`\n✅ **No issues found**`);
+      if (testResults.total > 0) {
+          summary.addHeading('🧪 Test Results', 3).addTable([
+                ['Result', 'Count'],
+                ['Total Tests', testResults.total.toString()],
+                ['✅ Passed', testResults.passed.toString()],
+                ['❌ Failed', testResults.failed.toString()],
+                ['⏭️ Skipped', testResults.skipped.toString()]
+            ]);
       }
 
+      if (hasKnipIssues || hasTestFailures) {
+        summary.addRaw(`\n⚠️ **Issues found** - See annotations or check workflow logs for details`);
+      } else if (testResults.total > 0 || language === 'node') {
+        summary.addRaw(`\n✅ **Success**`);
+      }
       await summary.write();
     } else {
-       // CLI Output
-       console.log('\n🔍 Knip Analysis Results');
-       console.table({
-         'Unused files': stats.unusedFiles,
-         'Unused dependencies': stats.unusedDeps,
-         'Unused devDependencies': stats.unusedDevDeps,
-         'Unused exports': stats.unusedExports
-       });
+      // CLI Fallback Output
+      const title = `🔍 ${language.toUpperCase()} Analysis Results`;
+      console.log(`\n${title}`);
+      console.log('='.repeat(title.length));
+      
+      if (language === 'node') {
+        console.log(`Knip: ${stats.totalIssues} issues found`);
+        console.log(`  - Unused files: ${stats.unusedFiles}`);
+        console.log(`  - Unused dependencies: ${stats.unusedDeps}`);
+      }
+      
+      if (testResults.total > 0) {
+        console.log(`Tests: ${testResults.total} total`);
+        console.log(`  - ✅ Passed: ${testResults.passed}`);
+        console.log(`  - ❌ Failed: ${testResults.failed}`);
+        console.log(`  - ⏭️  Skipped: ${testResults.skipped}`);
+      }
     }
 
-    // Handle failure mode
-    if (stats.totalIssues > 0) {
-      if (depScan === 'error') {
-        core.setFailed(`Knip found ${stats.totalIssues} unused items.`);
-      } else {
-        core.info(`Knip found ${stats.totalIssues} unused items (running in warn mode).`);
-      }
-    } else {
-      core.info('✅ Knip analysis complete - no issues found.');
+    if (language === 'node' && hasKnipIssues && depScan === 'error') {
+      core.setFailed(`Knip found ${stats.totalIssues} unused items.`);
+    }
+
+    if (hasTestFailures) {
+        core.setFailed(`${testResults.failed} tests failed in the ${language} project.`);
     }
 
   } catch (error) {
-    core.setFailed(error.message);
+    core.setFailed(error instanceof Error ? error.message : String(error));
   }
 }
 
-run();
+if (process.env.NODE_ENV !== 'test') {
+  run();
+}

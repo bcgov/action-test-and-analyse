@@ -15,8 +15,24 @@ inputs:
     required: true
 
   node_version:
-    description: Node version to use (e.g., '22')
-    required: true
+    description: Node version to use (e.g., '24')
+    default: "24"
+
+  java_version:
+    description: Java version to use (e.g., '21')
+    default: "21"
+
+  java_distribution:
+    description: Java distribution to use (e.g., temurin)
+    default: "temurin"
+
+  python_version:
+    description: Python version to use (e.g., '3.12')
+    default: "3.12"
+
+  language:
+    description: "Primary language of the project. Options: node (default), java, python"
+    default: "node"
 
   ### Typical / recommended
   cache:
@@ -61,19 +77,27 @@ inputs:
     description: Non-default branch to clone (used for testing this action)
     default: ""
 
+  skip_checkout:
+    description: "Skip the internal checkout step. Useful for self-testing or when the project is already checked out."
+    default: "false"
+
+  checkout_path:
+    description: "Path where the repository should be checked out. Default is current directory."
+    default: "."
+
 outputs:
   triggered:
     description: Whether the action was triggered based on path changes
-    value: ${{ steps.diff.outputs.triggered }}
+    value: ${{ steps.final_triggered.outputs.triggered }}
   unused_files:
     description: Number of unused files found by Knip
-    value: ${{ steps.analysis.outputs.unused_files }}
+    value: ${{ steps.reporter_logic.outputs.unused_files }}
   unused_deps:
     description: Number of unused dependencies found by Knip
-    value: ${{ steps.analysis.outputs.unused_deps }}
+    value: ${{ steps.reporter_logic.outputs.unused_deps }}
   total_issues:
     description: Total number of issues found by Knip
-    value: ${{ steps.analysis.outputs.total_issues }}
+    value: ${{ steps.reporter_logic.outputs.total_issues }}
 
 runs:
   using: composite
@@ -94,69 +118,129 @@ runs:
           exit 1
         fi
 
-    # Send triggers to diff action (only for pull requests; omitted for push events so tests always run)
+    # Send triggers to diff action (only if triggers are provided)
     - id: diff
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.triggers }}" ]; then
+          echo "triggered=true" >> $GITHUB_OUTPUT
+        else
+          echo "Running diff-triggers with: ${{ inputs.triggers }}"
+          # We use a sub-step to call the action to handle the conditional output
+          echo "triggered=false" >> $GITHUB_OUTPUT # Default
+        fi
+
+    - id: diff_actual
+      if: inputs.triggers != ''
       uses: bcgov/action-diff-triggers@4abfcb211f5816d654d1c5a417e5431a2c4a5379 # v1.1.1
       with:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         ref: ${{ inputs.diff_branch }}
 
-    - if: steps.diff.outputs.triggered == 'true'
-      id: versions
+    # Final triggered state
+    - id: final_triggered
       shell: bash
       run: |
-        # Get Action Node Version (using runner's node to read file)
-        set -e
-        NODE_VER=$(node -e "const pkg = require('${{ github.action_path }}/package.json'); const ver = pkg.engines?.node?.match(/\d+/)?.[0] || '20'; console.log(ver)")
-        echo "action_node_version=$NODE_VER" >> $GITHUB_OUTPUT
-
-    # Setup node version for the action's own dependencies
-    - uses: actions/setup-node@v6
-      if: steps.diff.outputs.triggered == 'true'
-      with:
-        node-version: ${{ steps.versions.outputs.action_node_version }}
-
-    # Install Action Dependencies
-    - name: Install Action Dependencies
-      if: steps.diff.outputs.triggered == 'true'
-      shell: bash
-      run: |
-        cd ${{ github.action_path }}
-        if [ ! -d "node_modules" ]; then
-          # Use npm install instead of ci to be more resilient to platform-specific optional deps (like esbuild)
-          npm install --no-save --omit=dev --no-audit --no-fund
+        TRIGGERED="false"
+        if [ "${{ steps.diff.outputs.triggered }}" == "true" ] || [ "${{ steps.diff_actual.outputs.triggered }}" == "true" ]; then
+          TRIGGERED="true"
         fi
+        echo "triggered=$TRIGGERED" >> $GITHUB_OUTPUT
+        echo "FINAL TRIGGERED: $TRIGGERED"
+
 
     - name: Setup Supply Chain Scan
-      if: steps.diff.outputs.triggered == 'true' && inputs.supply_scan == 'true'
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.supply_scan == 'true' && inputs.language == 'node'
+      shell: bash
+      continue-on-error: true # Don't let a setup-ci issue kill the whole run
+      run: |
+        npx -y @aikidosec/safe-chain setup-ci
+
+    - name: Determine Cache Type
+      id: cache_logic
       shell: bash
       run: |
-        ${{ github.action_path }}/node_modules/.bin/safe-chain setup-ci
+        CACHE_VAL="${{ inputs.cache }}"
+        LANG="${{ inputs.language }}"
+        RESULT=""
+        
+        if [ "$CACHE_VAL" == "none" ]; then
+           RESULT=""
+        elif [ "$LANG" == "node" ]; then
+           if [[ "$CACHE_VAL" == "yarn" || "$CACHE_VAL" == "pnpm" ]]; then RESULT="$CACHE_VAL"; else RESULT="npm"; fi
+        elif [ "$LANG" == "java" ]; then
+           if [[ "$CACHE_VAL" == "gradle" || "$CACHE_VAL" == "sbt" ]]; then RESULT="$CACHE_VAL"; else RESULT="maven"; fi
+        elif [ "$LANG" == "python" ]; then
+           if [[ "$CACHE_VAL" == "pipenv" || "$CACHE_VAL" == "poetry" ]]; then RESULT="$CACHE_VAL"; else RESULT="pip"; fi
+        fi
+        echo "cache=$RESULT" >> $GITHUB_OUTPUT
+        echo "Determined cache type: '$RESULT' for language: $LANG (original input: '$CACHE_VAL')"
 
     # Checkout the target repository - SonarCloud requires a full clone
-    - uses: actions/checkout@v6
-      if: steps.diff.outputs.triggered == 'true'
+    - name: Internal Project Checkout
+      uses: actions/checkout@v6
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.skip_checkout != 'true' && inputs.skip_checkout != true
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.branch }}
+        path: ${{ inputs.checkout_path }}
         fetch-depth: 0
 
-    # Setup node with caching
-    - uses: actions/setup-node@v6
-      if: steps.diff.outputs.triggered == 'true'
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'node'
       with:
         node-version: ${{ inputs.node_version }}
-        cache: ${{ inputs.cache }}
-        cache-dependency-path: ${{ inputs.dir }}/package-lock.json
+        cache: ${{ steps.cache_logic.outputs.cache }}
+        cache-dependency-path: ${{ inputs.dir }}/${{ steps.cache_logic.outputs.cache == 'yarn' && 'yarn.lock' || (steps.cache_logic.outputs.cache == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json') }}
+
+    # Condition 2: Java Project Setup
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'java'
+      with:
+        java-version: ${{ inputs.java_version }}
+        distribution: ${{ inputs.java_distribution }}
+        cache: ${{ steps.cache_logic.outputs.cache }}
+        cache-dependency-path: |
+          ${{ inputs.dir }}/**/*.xml
+          ${{ inputs.dir }}/**/*.gradle*
+          ${{ inputs.dir }}/**/sbt
+
+    # Condition 3: Python Project Setup
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'python'
+      with:
+        python-version: ${{ inputs.python_version }}
+        cache: ${{ steps.cache_logic.outputs.cache }}
+        cache-dependency-path: |
+          ${{ inputs.dir }}/**/requirements*.txt
+          ${{ inputs.dir }}/**/pyproject.toml
+          ${{ inputs.dir }}/**/Pipfile.lock
 
     # Run tests
-    - if: steps.diff.outputs.triggered == 'true'
+    - if: steps.final_triggered.outputs.triggered == 'true'
       shell: bash
       working-directory: ${{ inputs.dir }}
-      run: ${{ inputs.commands }}
+      env:
+        SONAR_TOKEN: ${{ inputs.sonar_token }}
+        MAVEN_OPTS: "-Xmx2048m -Xss2m -XX:MaxMetaspaceSize=512m -Djava.awt.headless=true -XX:+HeapDumpOnOutOfMemoryError"
+        _JAVA_OPTIONS: "-Xmx2048m -Xss2m"
+      run: |
+        set +e
+        ${{ inputs.commands }} > test_output.log 2>&1
+        CMD_EXIT_CODE=$?
+        cat test_output.log
+        set -e
+        if [ $CMD_EXIT_CODE -ne 0 ]; then
+          echo "TEST_FAIL_SIGNAL=true" >> $GITHUB_ENV
+        fi
+        exit 0 # Allow the next step (reporter) to run
 
     ### Optional SonarCloud
-    - if: inputs.sonar_token && steps.diff.outputs.triggered == 'true'
+    - if: inputs.sonar_token != '' && steps.final_triggered.outputs.triggered == 'true' && inputs.language != 'java'
       uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4 # v7.1.0
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
@@ -165,17 +249,13 @@ runs:
         args: >
           ${{ inputs.sonar_args }}
 
-    # Run Analysis Tools
-    - name: Run Analysis
-      id: analysis
-      if: steps.diff.outputs.triggered == 'true' && inputs.dep_scan != 'off'
+    # Run Analysis Tools (Knip for Node, Test Reports for others)
+    - name: Knip Dependency Analysis
+      id: knip_analysis
+      if: steps.final_triggered.outputs.triggered == 'true' && inputs.dep_scan != 'off' && inputs.language == 'node'
       working-directory: ${{ inputs.dir }}
       shell: bash
       run: |
-        set -e
-        # Clean up
-        rm -f knip-output.json knip-summary.txt
-
         # Set config
         if [ -n "${{ inputs.knip_config }}" ]; then
           KNIP_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
@@ -183,22 +263,26 @@ runs:
           KNIP_CONFIG="--config=${{ github.action_path }}/.knip.json --no-config-hints"
         fi
 
-        # Run knip using the action's bundled version
+        # Run knip using npx
         set +e
-        ${{ github.action_path }}/node_modules/.bin/knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
+        npx -y knip --dependencies --exports --reporter json --no-progress ${KNIP_CONFIG} > knip-output.json
         KNIP_EXIT_CODE=$?
-        ${{ github.action_path }}/node_modules/.bin/knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
+        npx -y knip --dependencies --exports ${KNIP_CONFIG} | sed 's/\u001b\[[0-9;]*[a-zA-Z]//g' > knip-summary.txt 2>&1
         set -e
 
-        # Process results with the action script
+    - name: Process Reports and Analysis
+      id: reporter_logic
+      if: steps.final_triggered.outputs.triggered == 'true' && (success() || failure())
+      working-directory: ${{ inputs.dir }}
+      shell: bash
+      run: |
+        # Process results with the bundled action script (shared logic)
         export INPUT_DIR="${{ inputs.dir }}"
         export INPUT_DEP_SCAN="${{ inputs.dep_scan }}"
         export INPUT_KNIP_OUTPUT="knip-output.json"
+        export INPUT_LANGUAGE="${{ inputs.language }}"
         
-        # Ensure we run this using the action's compatible node version if possible
-        # but for composite simplicity we'll use the current (user project) version 
-        # as it is likely compatible (Engine says >=22)
-        node ${{ github.action_path }}/src/index.js
+        node ${{ github.action_path }}/dist/index.js
 
     - name: Final cleanup
       if: always() && inputs.repository != github.repository

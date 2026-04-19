@@ -15,63 +15,65 @@
 [Issues]: https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue
 [Pull Requests]: https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/working-with-your-remote-repository-on-github-or-github-enterprise/creating-an-issue-or-pull-request
 
-# Test and Analyze with Triggers, SonarCloud, Supply Chain Scanning and Dependency/Export Analysis
+# Universal Test and Analyze with Triggers, SonarCloud, and Multi-Language Support
+ 
+ This action runs tests and analysis across the BC Gov ecosystem, optionally sending results and coverage to [SonarCloud](https://sonarcloud.io). It supports **Node.js, Java, and Python** projects with unified reporting, supply chain scanning, and dependency analysis.
 
-This action runs tests, dependent on triggers, optionally sending results and coverage to [SonarCloud](https://sonarcloud.io).  Test and SonarCloud can be configured to comment on pull requests or stop failing workflows.  Optional supply chain attack detection can be enabled to scan packages before installation.  Optional Knip analysis can be enabled to detect unused dependencies and exports in JavaScript/TypeScript projects.
-
-Conditional triggers are used to determine whether tests need to be run.  If triggers are matched, then the appropriate code has changed and should be tested.  Tests always run if no triggers are provided.  Untriggered runs do little other than report a success.
-
-Only nodejs (JavaScript, TypeScript) is supported by this action.  Please see our [Java action](https://github.com/bcgov/action-test-and-analyse-java) or upcoming Python action as required.
+> [!IMPORTANT]
+> **Deprecation Notice**: This action now natively supports Java. If you are using `bcgov/action-test-and-analyse-java`, you should migrate to this universal action. The Java-specific repository is now considered redundant.
+ 
+ Conditional triggers are used to determine whether tests need to be run. If triggers are matched, the appropriate code is tested. Tests always run if no triggers are provided.
+ 
+ **Supported Languages:**
+ - **Node.js**: Full support for Vitest/Jest/Mocha, Knip analysis, and Safe-Chain scanning.
+ - **Java**: Native support for Maven/Gradle with integrated JUnit reporting and SonarCloud plugin support.
+ - **Python**: Support for Pytest/Unittest with JUnit XML results and SonarCloud analysis.
 
 # Usage
 
 ```yaml
-- uses: bcgov/action-test-and-analyse@x.y.z
+- uses: bcgov/action-test-and-analyse@v2
   with:
-    ### Required
+    ### Language Selection
+    # Primary language of the project. Options: node (default), java, python
+    language: node
 
-    # Commands to run tests
-    # Please configure your app to generate coverage (coverage/lcov.info)
+    ### Required
+    # Commands to run tests (e.g., 'npm test' or 'mvn verify')
     commands: |
       npm ci
       npm run test:cov
 
-    # Project/app directory
+    # Project/app directory (relative to workspace root)
     dir: frontend
 
-    # Node.js version
-    # BREAKING CHANGE: previously defaulted to 16 (LTS)
-    node_version: "20"
+    ### Versioning
+    # Node.js version (for Node projects). Default: "24"
+    node_version: "24"
+    
+    # Java version (for Java projects). Default: "21"
+    java_version: "21"
+
+    # Python version (for Python projects). Default: "3.12"
+    python_version: "3.12"
 
     ### Typical / recommended
+    # Sonar token available from sonarcloud.io
+    sonar_token: ${{ secrets.SONAR_TOKEN }}
 
-    # Sonar arguments
-    # https://docs.sonarcloud.io/advanced-setup/analysis-parameters/
+    # Sonar arguments (https://docs.sonarcloud.io/advanced-setup/analysis-parameters/)
     sonar_args: |
-        -Dsonar.exclusions=**/coverage/**,**/node_modules/**
         -Dsonar.organization=bcgov-sonarcloud
         -Dsonar.projectKey=bcgov_${{ github.repository }}
 
-    # Sonar token
-    # Available from sonarcloud.io or your organization administrator
-    # BCGov uses https://github.com/BCDevOps/devops-requests/issues/new/choose
-    # Provide an unpopulated token for pre-setup, section will be skipped
-    sonar_token: ${{ secrets.SONAR_TOKEN }}
+    # Bash array to diff for build triggering (e.g., ('frontend/'))
+    # Optional; if omitted, tests always run.
+    triggers: ""
 
-    # Bash array to diff for build triggering
-    # Optional, defaults to nothing, which forces a build
-    triggers: ('frontend/')
-
-    # Enable supply chain attack detection using @aikidosec/safe-chain
-    # Optional, defaults to true (enabled by default for security)
-    # Detects and blocks malicious packages during npm ci
-    # Set to false to disable
+    # Enable supply chain attack detection (Node only). Default: true
     supply_scan: true
 
-    # Enable dependency and export analysis using Knip
-    # Optional, defaults to warn (runs but doesn't fail)
-    # Options: off (skip), warn (run but don't fail), error (run and fail on issues)
-    # Analyzes JS/TS projects for unused dependencies and exports
+    # Knip dependency analysis (Node only). Options: off, warn (default), error
     dep_scan: warn
 
     ### Usually a bad idea / not recommended
@@ -103,43 +105,50 @@ Create or modify a GitHub workflow, like below.  E.g. `./github/workflows/tests.
 
 Note: Provide an unpopulated SONAR_TOKEN until one is provisioned.  SonarCloud will only run once populated, allowing for pre-setup.
 
+```
+
+# Example: Java (Maven) with Native SonarCloud Reporting
+
+For Java projects, it is recommended to use the native Maven Sonar plugin. The action automatically exposes `SONAR_TOKEN` to your commands.
+
 ```yaml
-name: Test and Analyze
-
-on:
-  pull_request:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - ".github/**"
-      - "**.md"
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   tests:
-    name: Test and Analyze
+    name: Java Tests
     runs-on: ubuntu-24.04
     steps:
-      - uses: bcgov/action-test-and-analyse@x.y.z
+      - uses: bcgov/action-test-and-analyse@v2
         with:
+          language: java
+          java_version: "21"
           commands: |
-            npm ci
-            npm run test:cov
-          dir: frontend
-          node_version: "20"
-          sonar_args: |
-            -Dsonar.exclusions=**/coverage/**,**/node_modules/**
-            -Dsonar.organization=bcgov-nr
-            -Dsonar.projectKey=bcgov-nr_action-test-and-analyse_frontend
+            mvn -B verify sonar:sonar \
+              -Dsonar.organization=bcgov-sonarcloud \
+              -Dsonar.projectKey=bcgov_your-project-key
+          dir: backend
           sonar_token: ${{ secrets.SONAR_TOKEN }}
-          dep_scan: error
-          # supply_scan defaults to true, so no need to specify
-          triggers: ('frontend/' 'charts/frontend')
+          triggers: ('backend/' 'pom.xml')
+```
+
+# Example: Python with Pytest and JUnit Reporting
+
+The action automatically parses JUnit XML files found in your project to generate rich step summaries.
+
+```yaml
+jobs:
+  tests:
+    name: Python Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: bcgov/action-test-and-analyse@v2
+        with:
+          language: python
+          python_version: "3.12"
+          commands: |
+            pip install -r requirements.txt
+            pytest --junitxml=junit.xml
+          dir: app
+          triggers: ('app/' 'requirements.txt')
 ```
 
 # Example, Only Running Tests (No SonarCloud, No Dependency/Export Analysis), No Triggers
@@ -152,7 +161,7 @@ jobs:
     name: Test and Analyze
     runs-on: ubuntu-24.04
     steps:
-      - uses: bcgov/action-test-and-analyse@x.y.z
+      - uses: bcgov/action-test-and-analyse@v2
         with:
           commands: |
             npm ci
@@ -184,7 +193,7 @@ jobs:
             triggers: ('backend/' 'charts/backend')
     steps:
       - uses: actions/checkout@v5
-      - uses: bcgov/action-test-and-analyse@x.y.z
+      - uses: bcgov/action-test-and-analyse@v2
         with:
           commands: |
             npm ci
@@ -211,7 +220,7 @@ Has the action been triggered by path changes? \[true|false\]
 
 ```yaml
 - id: test
-  uses: bcgov/action-test-and-analyse@x.y.z
+  uses: bcgov/action-test-and-analyse@v2
   with:
     commands: |
       npm ci
@@ -250,7 +259,7 @@ Supply chain scanning is enabled by default. No configuration is required - it w
 ⚠️ **WARNING**: Disabling supply chain scanning is dangerous and strongly discouraged. It leaves your project vulnerable to malicious packages, typosquatting, and supply chain attacks. Only disable if absolutely necessary and you understand the security risks. If you must disable, set `supply_scan: false` in your workflow:
 
 ```yaml
-- uses: bcgov/action-test-and-analyse@x.y.z
+- uses: bcgov/action-test-and-analyse@v2
   with:
     commands: |
       npm ci
@@ -284,7 +293,7 @@ The `dep_scan` parameter supports three modes:
 ### Example: Warn Mode (Default)
 
 ```yaml
-- uses: bcgov/action-test-and-analyse@x.y.z
+- uses: bcgov/action-test-and-analyse@v2
   with:
     commands: |
       npm ci
@@ -297,7 +306,7 @@ The `dep_scan` parameter supports three modes:
 ### Example: Error Mode (Enforce Cleanup)
 
 ```yaml
-- uses: bcgov/action-test-and-analyse@x.y.z
+- uses: bcgov/action-test-and-analyse@v2
   with:
     commands: |
       npm ci
@@ -336,7 +345,7 @@ The default configuration excludes the following packages that are commonly flag
 When `knip_config` is not provided, the action uses its default configuration. If you need a custom configuration, specify it using the `knip_config` parameter:
 
 ```yaml
-- uses: bcgov/action-test-and-analyse@x.y.z
+- uses: bcgov/action-test-and-analyse@v2
   with:
     dep_scan: error
     knip_config: "configs/custom.knip.json"  # Path is relative to the GitHub workspace root, not to the `dir` input
@@ -384,7 +393,7 @@ For complete configuration options, see the [Knip documentation](https://knip.de
 
 ## Requirements
 
-- JavaScript or TypeScript projects only
+- JavaScript or TypeScript projects only (for Knip analysis)
 - Project must have a `package.json` file
 - Works best with projects that have clear entry points defined in configuration
 

@@ -5,17 +5,18 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0"
   },
   "dependencies": {
     "@actions/core": "^3.0.0",
-    "@aikidosec/safe-chain": "^1.1.10",
-    "knip": "^6.0.0"
+    "fast-xml-parser": "^5.5.11",
+    "glob": "^13.0.6"
   },
   "scripts": {
     "test": "vitest",
     "lint": "eslint src/**",
-    "format": "prettier --write src/**"
+    "format": "prettier --write src/**",
+    "build": "ncc build src/index.js -o dist --minify"
   },
   "repository": {
     "type": "git",
@@ -23,9 +24,13 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@aikidosec/safe-chain": "^1.1.10",
     "@eslint/js": "^10.0.1",
+    "@vercel/ncc": "^0.38.4",
+    "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^10.2.0",
-    "prettier": "^3.8.2",
+    "knip": "^6.0.0",
+    "prettier": "^3.3.3",
     "vitest": "^4.1.4"
   }
 }
