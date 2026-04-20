@@ -197,7 +197,7 @@ runs:
 
     # Condition 2: Java Project Setup
     - name: Setup Java
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'java'
       with:
         java-version: ${{ inputs.java_version }}
@@ -210,7 +210,7 @@ runs:
 
     # Condition 3: Python Project Setup
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'python'
       with:
         python-version: ${{ inputs.python_version }}
