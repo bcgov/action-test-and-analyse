@@ -132,7 +132,7 @@ runs:
 
     - id: diff_actual
       if: inputs.triggers != ''
-      uses: bcgov/action-diff-triggers@4abfcb211f5816d654d1c5a417e5431a2c4a5379 # v1.1.1
+      uses: bcgov/action-diff-triggers@a80e4b3cf77b7e05f84e74030e3bfa08b717a574 # v1.2.1
       with:
         triggers: ${{ github.event_name == 'pull_request' && inputs.triggers || '' }}
         ref: ${{ inputs.diff_branch }}
