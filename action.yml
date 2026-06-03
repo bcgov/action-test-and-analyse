@@ -260,7 +260,73 @@ runs:
         if [ -n "${{ inputs.knip_config }}" ]; then
           KNIP_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
         else
-          KNIP_CONFIG="--config=${{ github.action_path }}/.knip.json --no-config-hints"
+          FOUND_CONFIG=""
+          WORKSPACE_PATH="${{ github.workspace }}"
+
+          # 1. Candidate config files in the current app/package directory (inputs.dir)
+          APP_CANDIDATES=(
+            "knip.json"
+            ".knip.json"
+            "knip.jsonc"
+            ".knip.jsonc"
+            "knip.ts"
+            "knip.js"
+            "knip.config.ts"
+            "knip.config.js"
+          )
+          for file in "${APP_CANDIDATES[@]}"; do
+            if [ -f "$file" ]; then
+              FOUND_CONFIG="$file"
+              break
+            fi
+          done
+
+          # Check package.json in the current app/package directory for "knip" key
+          if [ -z "$FOUND_CONFIG" ] && [ -f "package.json" ]; then
+            if grep -q '"knip":' package.json; then
+              FOUND_CONFIG="package.json"
+            fi
+          fi
+
+          # 2. Check .github configuration in the workspace root
+          if [ -z "$FOUND_CONFIG" ]; then
+            GITHUB_CANDIDATES=(
+              ".github/knip.json"
+              ".github/.knip.json"
+              ".github/knip.jsonc"
+              ".github/.knip.jsonc"
+            )
+            for file in "${GITHUB_CANDIDATES[@]}"; do
+              if [ -f "$WORKSPACE_PATH/$file" ]; then
+                FOUND_CONFIG="$WORKSPACE_PATH/$file"
+                break
+              fi
+            done
+          fi
+
+          # 3. Check standard configuration files in the workspace root (only if workspace root is different from inputs.dir)
+          if [ -z "$FOUND_CONFIG" ] && [ "$(pwd)" != "$WORKSPACE_PATH" ]; then
+            for file in "${APP_CANDIDATES[@]}"; do
+              if [ -f "$WORKSPACE_PATH/$file" ]; then
+                FOUND_CONFIG="$WORKSPACE_PATH/$file"
+                break
+              fi
+            done
+
+            if [ -z "$FOUND_CONFIG" ] && [ -f "$WORKSPACE_PATH/package.json" ]; then
+              if grep -q '"knip":' "$WORKSPACE_PATH/package.json"; then
+                FOUND_CONFIG="$WORKSPACE_PATH/package.json"
+              fi
+            fi
+          fi
+
+          if [ -n "$FOUND_CONFIG" ]; then
+            KNIP_CONFIG="--config=$FOUND_CONFIG"
+            echo "Auto-discovered Knip configuration: $FOUND_CONFIG"
+          else
+            KNIP_CONFIG="--config=${{ github.action_path }}/.knip.json --no-config-hints"
+            echo "No Knip configuration found. Using default configuration."
+          fi
         fi
 
         # Run knip using npx
