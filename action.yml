@@ -98,6 +98,9 @@ outputs:
   total_issues:
     description: Total number of issues found by Knip
     value: ${{ steps.reporter_logic.outputs.total_issues }}
+  knip_config:
+    description: The Knip configuration file that was auto-discovered or specified
+    value: ${{ steps.knip_analysis.outputs.knip_config }}
 
 runs:
   using: composite
@@ -259,6 +262,7 @@ runs:
         # Set config
         if [ -n "${{ inputs.knip_config }}" ]; then
           KNIP_CONFIG="--config=${{ github.workspace }}/${{ inputs.knip_config }}"
+          echo "knip_config=${{ github.workspace }}/${{ inputs.knip_config }}" >> $GITHUB_OUTPUT
         else
           FOUND_CONFIG=""
           WORKSPACE_PATH="${{ github.workspace }}"
@@ -323,9 +327,11 @@ runs:
           if [ -n "$FOUND_CONFIG" ]; then
             KNIP_CONFIG="--config=$FOUND_CONFIG"
             echo "Auto-discovered Knip configuration: $FOUND_CONFIG"
+            echo "knip_config=$FOUND_CONFIG" >> $GITHUB_OUTPUT
           else
             KNIP_CONFIG="--config=${{ github.action_path }}/.knip.json --no-config-hints"
             echo "No Knip configuration found. Using default configuration."
+            echo "knip_config=default" >> $GITHUB_OUTPUT
           fi
         fi
 
