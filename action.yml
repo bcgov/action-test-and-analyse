@@ -265,7 +265,7 @@ runs:
           echo "knip_config=${{ github.workspace }}/${{ inputs.knip_config }}" >> $GITHUB_OUTPUT
         else
           FOUND_CONFIG=""
-          WORKSPACE_PATH="${{ github.workspace }}"
+          WORKSPACE_PATH=$(git -C "${{ inputs.dir }}" rev-parse --show-toplevel 2>/dev/null || echo "${{ github.workspace }}")
 
           # 1. Candidate config files in the current app/package directory (inputs.dir)
           APP_CANDIDATES=(
