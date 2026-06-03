@@ -283,7 +283,7 @@ runs:
 
           # Check package.json in the current app/package directory for "knip" key
           if [ -z "$FOUND_CONFIG" ] && [ -f "package.json" ]; then
-            if grep -q '"knip":' package.json; then
+            if node -e 'try { const pkg = JSON.parse(require("node:fs").readFileSync("package.json", "utf8")); process.exit(pkg.knip !== undefined ? 0 : 1); } catch { process.exit(1); }'; then
               FOUND_CONFIG="package.json"
             fi
           fi
@@ -314,7 +314,7 @@ runs:
             done
 
             if [ -z "$FOUND_CONFIG" ] && [ -f "$WORKSPACE_PATH/package.json" ]; then
-              if grep -q '"knip":' "$WORKSPACE_PATH/package.json"; then
+              if node -e 'try { const pkg = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); process.exit(pkg.knip !== undefined ? 0 : 1); } catch { process.exit(1); }' "$WORKSPACE_PATH/package.json"; then
                 FOUND_CONFIG="$WORKSPACE_PATH/package.json"
               fi
             fi
