@@ -3,10 +3,18 @@
     "swagger-ui-express",
     "rimraf",
     "magicast",
-    "@types/node",
-    "@types/react",
-    "@types/react-dom",
-    "@testing-library/user-event"
+    "@types/*",
+    "@testing-library/user-event",
+    "@typescript-eslint/parser",
+    "@typescript-eslint/eslint-plugin",
+    "@angular-eslint/schematics",
+    "@angular-devkit/core",
+    "@angular-devkit/architect",
+    "@nestjs/typeorm",
+    "@nestjs/schedule",
+    "@nestjs/config",
+    "@nestjs/axios",
+    "@nestjs-modules/mailer"
   ],
   "ignoreBinaries": [
     "rimraf"

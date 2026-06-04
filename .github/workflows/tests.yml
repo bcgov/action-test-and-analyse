@@ -58,6 +58,14 @@ jobs:
             repository: bcgov/nr-forest-client
             test_command: timeout 10m mvn -B verify sonar:sonar -P all-tests -DskipTests -Dsonar.host.url=https://sonarcloud.io -Dsonar.organization=bcgov-sonarcloud -Dsonar.projectKey=bcgov_bcgov/action-test-and-analyse_java-native
             cache: "none" # Explicitly disable cache
+          - name: fom-autodiscover
+            dir: ""
+            triggers: ""
+            expected_triggered: true
+            repository: bcgov/nr-fom
+            test_command: echo "Testing autodiscover on nr-fom"
+            expected_config: ".github/knip.json"
+            cache: "none"
     steps:
       # 1. Checkout the Action (this repo) at the root
       - name: Checkout Action
@@ -88,6 +96,7 @@ jobs:
           repository: ${{ matrix.repository }}
           triggers: ${{ matrix.triggers }}
           sonar_token: ${{ secrets.SONAR_TOKEN }}
+          cache: ${{ matrix.cache || 'npm' }}
 
       - name: Verify trigger behavior
         run: |
@@ -97,3 +106,15 @@ jobs:
             exit 1
           fi
           echo "✅ ${{ matrix.name }}: expected triggered=${{ matrix.expected_triggered }}, got ${{ steps.action.outputs.triggered }}"
+
+      - name: Verify discovered knip config
+        if: matrix.expected_config != ''
+        run: |
+          echo "🔍 Verifying discovered Knip config for ${{ matrix.name }}"
+          CONFIG_OUT="${{ steps.action.outputs.knip_config }}"
+          EXPECTED_SUFFIX="${{ matrix.expected_config }}"
+          if [[ "$CONFIG_OUT" != *"$EXPECTED_SUFFIX" ]]; then
+            echo "❌ Expected knip_config output to end with '$EXPECTED_SUFFIX', got '$CONFIG_OUT'"
+            exit 1
+          fi
+          echo "✅ Discovered Knip config correctly matched: $CONFIG_OUT"
