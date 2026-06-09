@@ -244,7 +244,7 @@ runs:
 
     ### Optional SonarCloud
     - if: inputs.sonar_token != '' && steps.final_triggered.outputs.triggered == 'true' && inputs.language != 'java'
-      uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8
+      uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
       with:
