@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.0.0"
+    "node": "^24.0.0"
   },
   "dependencies": {
     "@actions/core": "^3.0.0",
@@ -24,7 +24,6 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@aikidosec/safe-chain": "^1.1.10",
     "@eslint/js": "^10.0.1",
     "@vercel/ncc": "^0.44.0",
     "@vitest/coverage-v8": "^4.1.4",
