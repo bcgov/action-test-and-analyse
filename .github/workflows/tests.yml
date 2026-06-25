@@ -69,13 +69,13 @@ jobs:
     steps:
       # 1. Checkout the Action (this repo) at the root
       - name: Checkout Action
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
       # 2. Checkout the Test Project manually to avoid collisions
       - name: Checkout Test Project
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ matrix.repository }}
           path: test-project
