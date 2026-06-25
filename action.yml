@@ -181,7 +181,7 @@ runs:
 
     # Checkout the target repository - SonarCloud requires a full clone
     - name: Internal Project Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       if: steps.final_triggered.outputs.triggered == 'true' && inputs.skip_checkout != 'true' && inputs.skip_checkout != true
       with:
         repository: ${{ inputs.repository }}
