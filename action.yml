@@ -105,6 +105,11 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Migration Warning
+      shell: bash
+      run: |
+        echo "::warning title=Action moved::This Action has moved to bcgov/actions/test-and-analyse. See https://github.com/bcgov/actions/tree/main/test-and-analyse and update your workflow."
+
     - name: Warnings for breaking changes
       shell: bash
       run: |
