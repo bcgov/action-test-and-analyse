@@ -218,7 +218,7 @@ runs:
 
     # Condition 3: Python Project Setup
     - name: Setup Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       if: steps.final_triggered.outputs.triggered == 'true' && inputs.language == 'python'
       with:
         python-version: ${{ inputs.python_version }}
